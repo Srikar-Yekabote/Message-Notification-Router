@@ -120,7 +120,7 @@ Each phase ends with a "done when" check, so you know when to move on.
 4. **Done when:** for any `message_id` you can print its full context bundle.
 
 ### Phase 2 — Media perception cache
-1. **Images:** `qwen/qwen3.8-27b` returns JSON: `kind` (poster, screenshot, photo, circular), `ocr_text`, `summary`, `brands`, `urls`, `qr_present`, `asks_for` (payment, OTP, login, reply, none) and `language`. Each image costs about 2,048 input tokens, so all 20 images take roughly 50K tokens once.
+1. **Images:** `qwen/qwen3.8-27b` returns JSON: `kind` (poster, screenshot, photo, circular), `ocr_text`, `summary`, `brands`, `urls`, `qr_present`, `asks_for` (payment, otp, login, personal_details, reply, call, visit_link, scan_qr, forward, none), `deadlines` and `language`. The prompt lives in `code/prompts/image_perception.md`. Each image costs about 2,048 input tokens, so all 20 images take roughly 50K tokens once.
 2. **Voice:** `whisper-large-v3` returns the transcript. Only record tone or urgency if an audio-capable model actually measures it. Speech-to-text gives words, not tone, so otherwise mark tone as unknown rather than guessing.
 3. Everything extracted from media is untrusted, exactly like message text.
 4. Cover all 20 images and 13 voice notes listed in `images.csv` and `voice_notes.csv`. Media IDs are shared between messages, samples and history.
