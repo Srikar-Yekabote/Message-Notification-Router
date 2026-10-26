@@ -1,0 +1,26 @@
+{
+  "media_id": "img_006",
+  "media_type": "image",
+  "file": "media/images/img_006.jpg",
+  "file_sha256": "76796290b39179d1e8f20cd36650d20b734407044decf748faf9e0f1de0deb0d",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "CHAVADI\ncommunity cafe\nBrunch,\nBUT MAKE IT\nNATIVE!\n\nJoin us for a soulful weekend brunch\nwith regional favourites on Chavadis terrace garden,\nlive music, live counters & your furry friends by your side.\n\nREGIONAL\nFAVOURITES\n\nLIVE\nMUSIC\n\nLIVE\nCOUNTERS\n\nPET\nFRIENDLY\n\n25 % OFF\nON PRE-BOOKINGS\nOFFER VALID ON\nPRE-BOOKINGS ONLY!\n\nEVERY SUNDAY\nTIME: 11.00 am to 3.00 pm\n\nGood Food\nGood Music\nGood Company\nGreat Vibes!\n\nTO BOOK CALL\n+91 99867 87790",
+    "summary": "A promotional poster for a weekend brunch event at Chavadi community cafe, featuring regional food, live music, and a pet-friendly environment. It offers a 25% discount on pre-bookings and provides a phone number for reservations.",
+    "brands": [
+      "Chavadi"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "call"
+    ],
+    "deadlines": [
+      "EVERY SUNDAY",
+      "11.00 am to 3.00 pm"
+    ],
+    "language": "en"
+  }
+}

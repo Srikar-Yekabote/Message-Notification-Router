@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_005",
+  "media_type": "voice",
+  "file": "media/audio/vn_005.mp3",
+  "file_sha256": "b8c0086b2b49269eea44c6284b5c6e0487187e236c8b8baf173b70852543818c",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "Checkout errors are still spiking again. Please join the incident bridge now. Payments are failing for live users.",
+    "language": "English",
+    "duration_seconds": 7.86,
+    "tone": null
+  }
+}

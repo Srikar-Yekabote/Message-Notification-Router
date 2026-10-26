@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_002",
+  "media_type": "voice",
+  "file": "media/audio/vn_002.mp3",
+  "file_sha256": "b760e9fc29dffab8ee2dea93b73744f983a43af5b48b57375ab04e1e6dcad457",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "Please call now. Dad is unwell and we are going to the clinic.",
+    "language": "English",
+    "duration_seconds": 3.24,
+    "tone": null
+  }
+}

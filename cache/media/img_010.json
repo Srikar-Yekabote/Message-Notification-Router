@@ -1,0 +1,26 @@
+{
+  "media_id": "img_010",
+  "media_type": "image",
+  "file": "media/images/img_010.jpg",
+  "file_sha256": "52d513cd8304f52160a53eb388a78e2ffba0e36b59b73dfa1e481e3b2134baff",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "amazon\nPrime Day\nUP TO 60% OFF\n2X CASHBACK\n\n(24-30 JUNE)\nUP TO\n11.2%\nCASHBACK\nEXCLUSIVE ON\nSANDPASH",
+    "summary": "A promotional poster for Amazon Prime Day offering up to 60% off and 2x cashback. It also highlights an exclusive offer of up to 11.2% cashback on Sandpash valid from 24-30 June.",
+    "brands": [
+      "Amazon",
+      "Sandpash"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [
+      "24-30 JUNE"
+    ],
+    "language": "en"
+  }
+}

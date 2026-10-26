@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_004",
+  "media_type": "voice",
+  "file": "media/audio/vn_004.mp3",
+  "file_sha256": "637ac7ce5b0704539f7a6425b77588e355595004d0db5cdd7288e35657d86323",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "Hi, this is from School Transport. Today's pickup will be from gate 2 instead of the main gate. Please reach by 3.40.",
+    "language": "English",
+    "duration_seconds": 6.92,
+    "tone": null
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "media_id": "img_024",
+  "media_type": "image",
+  "file": "media/images/img_024.jpg",
+  "file_sha256": "87577789366f5c50f1d0503f2cd50e13055e298d29b3dc1ad71c732390c56828",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "screenshot",
+    "ocr_text": "Nifty 50, Spot, Daily\n1% Brick Size, Renko Chart\n\nPrice breaks the prior swing low which\nis a sign of bearishness. The negative\ncrossover in the moving averages\nconfirms short-term weakness.\n\n18710\n18594\n18278\n18162\n18046\n17930\n17814\n17698\n17582\n17466\n\n14.00\n12.00\n10.00",
+    "summary": "A dark-themed financial chart showing a Renko chart for the Nifty 50 index with a technical analysis annotation indicating bearishness and short-term weakness.",
+    "brands": [
+      "Nifty 50"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [],
+    "language": "en"
+  }
+}

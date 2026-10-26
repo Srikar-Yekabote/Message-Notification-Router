@@ -1,0 +1,23 @@
+{
+  "media_id": "img_023",
+  "media_type": "image",
+  "file": "media/images/img_023.jpg",
+  "file_sha256": "eab71968b2e9a81b6dce58706990e0f63cdaa6b176f52cbff65fb0d864bb7bf2",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "MISSING PERSON\nMissing from:\n4-11-2025\nAGE: 16\nNAME:- MELWYN\nDoor number 9 first Amani first cross Kasturi Nagar East of NGEF\nLandmark Hyderabad Irani tea shop\nPlz help contacts:-\n7348978260 / 9686674558 / 9741011528\nMISSING PERSON",
+    "summary": "A missing person poster for a 16-year-old male named Melwyn, who went missing on 4-11-2025. The poster provides a photo, address details in Kasturi Nagar, and three phone numbers for contact.",
+    "brands": [],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "call"
+    ],
+    "deadlines": [
+      "4-11-2025"
+    ],
+    "language": "en"
+  }
+}

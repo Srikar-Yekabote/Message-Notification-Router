@@ -1,0 +1,23 @@
+{
+  "media_id": "img_004",
+  "media_type": "image",
+  "file": "media/images/img_004.jpg",
+  "file_sha256": "90947e57be643cf0cd562b5358f2b9e6f3a481a1c237766f91ce5d09e0d0007f",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "screenshot",
+    "ocr_text": "Incident Review\nFriday, August 7 · 12:00 – 12:50pm\n\nTake meeting notes\nStart a new document to capture notes\n\n3 guests\n1 yes virtually\n2 awaiting\n\nShloka Shah\nOrganizer\nHome - Edit\n\nAkash Jain\n\nPawan K\nHome\n\n10 minutes before\nShloka Shah\n\nGoing?\nYes\nNo\nMaybe",
+    "summary": "A screenshot of a calendar event titled 'Incident Review' scheduled for Friday, August 7, from 12:00 to 12:50 pm. The interface displays a list of three guests and prompts the user to confirm their attendance by selecting 'Yes', 'No', or 'Maybe'.",
+    "brands": [],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "reply"
+    ],
+    "deadlines": [
+      "Friday, August 7 · 12:00 – 12:50pm"
+    ],
+    "language": "en"
+  }
+}

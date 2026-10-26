@@ -1,0 +1,29 @@
+{
+  "media_id": "img_002",
+  "media_type": "image",
+  "file": "media/images/img_002.jpg",
+  "file_sha256": "4fb8854092e447df1009a394809dd13c905814666e9181e4f4bb436cacfc43c3",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "WATCH THE BIGGEST CINEMATIC EPIC IN\n4DX | MX4D\nAT AN UNBEATABLE PRICE\nTICKETS\nNOW\nSTARTING\nAT\n₹199\nONLY ON 21ST JUL'26\nA FILM BY CHRISTOPHER NOLAN\nTHE ODYSSEY\n17.07.26\nPVR • INOX\nFOR BOOKINGS VISIT PVR OR INOX WEBSITE / APP\n*OFFER APPLICABLE IN SELECT CITIES, CINEMAS & SHOWS. OTHER T&C APPLY.",
+    "summary": "A promotional poster for the movie 'The Odyssey' advertising a ticket offer starting at ₹199 for a specific date at PVR and INOX cinemas.",
+    "brands": [
+      "4DX",
+      "MX4D",
+      "PVR",
+      "INOX"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "visit_link"
+    ],
+    "deadlines": [
+      "21ST JUL'26",
+      "17.07.26"
+    ],
+    "language": "en"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "media_id": "img_001",
+  "media_type": "image",
+  "file": "media/images/img_001.jpg",
+  "file_sha256": "54046a2614af94cb14e0224154faaeeea95cee802500313265f32c60fe323b76",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "Sporteno\nApollo HOSPITALS\nProudly Presents\nKID'S & MOM WALKATHON\n1KM walk with your MOM\nFREE FOR ALL\nMEDAL\nCERTIFICATE\nBIBS\nPENCIL BOX\nREFRESHMENT\nDECATHLON\nMOGAPPAR, CHENNAI\nSPORTS PARTNER\nDECATHLON\nREFRESHMENT PARTNER\nAlkashakalpa organic\n02 AUGUST 2026\nTIME: 8.00AM\nENTRY FEE:-\n₹ 199/-\nGoogle Pay\n87783 94729\nFor Details :\n87783 94729 / 86104 43961 / 93808 69045\nWALK FOR HEALTH",
+    "summary": "A promotional poster for a 'Kid's & Mom Walkathon' event scheduled for August 2, 2026, at Decathlon Mogappair, Chennai. It lists the entry fee, inclusions like medals and refreshments, and provides contact numbers for details.",
+    "brands": [
+      "Sporteno",
+      "Apollo Hospitals",
+      "Decathlon",
+      "Alkashakalpa organic",
+      "Google Pay"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "call"
+    ],
+    "deadlines": [
+      "02 AUGUST 2026",
+      "TIME: 8.00AM"
+    ],
+    "language": "en"
+  }
+}

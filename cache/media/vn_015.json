@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_015",
+  "media_type": "voice",
+  "file": "media/audio/vn_015.mp3",
+  "file_sha256": "e7b0492ed62b95e3d1f89437be78e2e14eec22738fde7117ab2910aba7e33fde",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "हाई बेटा, मेडिसन ये ली है, I am leaving now, please keep the front door unlocked, I will reach in about 20 minutes.",
+    "language": "Hindi",
+    "duration_seconds": 6.11,
+    "tone": null
+  }
+}

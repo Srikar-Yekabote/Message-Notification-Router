@@ -1,0 +1,23 @@
+{
+  "media_id": "img_011",
+  "media_type": "image",
+  "file": "media/images/img_011.jpg",
+  "file_sha256": "989c1e82cd2634039ca9748813da339094693604e2089a7c13416cb53ef336db",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "document",
+    "ocr_text": "FIELD TRIP CONSENT FORM\n\nI, _________________________ (as parent/guardian), give permission to my child/ward to participate in a planned field trip activity.\n\nTRIP DESTINATION: _________________________\nDATE: ____________ TO ____________\nDEPARTURE TIME: ____________\nRETURN TIME: ____________\n\nTransportation will be provided by ______ school bus.\n\n(Signature of Parent/Guardian)\n\n(Date of Signature)\n\n(Addressee)\n\nBy granting this permission, I assume full responsibility for any damage to personal property caused by my child or ward. Further, I hereby expressly waive any claim for financial compensation from the Board of Education, Shrews Creek Community Schools, their employees, agents, or representatives. I further expressly agree that in the event of any action, at the discretion of the sponsor(s), my child or ward may be returned home at my expense.\n\n(Telephone Number)",
+    "summary": "The image displays a 'Field Trip Consent Form' for a student to participate in a planned activity. It includes fields for trip details, a liability waiver, and a section for the parent or guardian to sign.",
+    "brands": [
+      "Shrews Creek Community Schools"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [],
+    "language": "en"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_012",
+  "media_type": "voice",
+  "file": "media/audio/vn_012.mp3",
+  "file_sha256": "6092b4b6c8aea3f5204d7d0c670d6906b12c7a8429a34f64ed8b204c4e815665",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "I have kept the blue jacket aside for you. If you still want it, please confirm before I show it to someone else.",
+    "language": "Hindi",
+    "duration_seconds": 5.38,
+    "tone": null
+  }
+}
