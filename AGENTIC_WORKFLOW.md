@@ -1,6 +1,6 @@
 # Agentic Workflow: WhatsApp Message Notification Router
 
-> **Challenge:** HackerRank Orchestrate — Message Notification Router
+> **Challenge:** Message Notification Router
 > **Output contract:** `message_id,action,message_type,reason,confidence,evidence_message_ids`
 > **Input:** 110 messages in `dataset/messages.csv` · 30 solved examples in `dataset/sample_messages.csv`
 > **Status:** design only, no code yet. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
