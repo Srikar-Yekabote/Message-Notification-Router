@@ -4,6 +4,7 @@
 > **Output contract:** `message_id,action,message_type,reason,confidence,evidence_message_ids`
 > **Input:** 110 messages in `dataset/messages.csv` · 30 solved examples in `dataset/sample_messages.csv`
 > **Status:** design only, no code yet. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
+> **Models:** free, open models on Groq's hosted free tier. The free tier's daily token limit shapes several choices below (§8).
 
 ---
 
@@ -63,7 +64,9 @@ These facts come from profiling the dataset and should shape the prompts and the
                                  ▼
 ┌─ Stage 0 · Context store  (code, built once) ─────────────────────┐
 │ All CSVs loaded and joined: history + reactions, indexed by user, │
-│ sender, group and business. Media analysis cached on disk.        │
+│ sender, group and business.                                       │
+│ Media pass, run once and cached on disk:                          │
+│   images → qwen/qwen3.8-27b    voice notes → whisper-large-v3     │
 └─────────────────────────────────┬─────────────────────────────────┘
                                   ▼
 ┌─ Stage 1 · Intake  (code) ────────────────────────────────────────┐
@@ -71,7 +74,7 @@ These facts come from profiling the dataset and should shape the prompts and the
 │ Attach a pointer to the media, not its contents.                  │
 └─────────────────────────────────┬─────────────────────────────────┘
                                   ▼
-┌─ Stage 2 · Router agent  (LLM, ReAct loop, at most 6 tool calls) ─┐
+┌─ Stage 2 · Router agent  (gpt-oss-120b, at most 5 tool calls) ────┐
 │   think → choose a tool → read the result → think … → stop        │
 │                                                                   │
 │   inspect_media     user_profile        sender_profile            │
@@ -81,8 +84,8 @@ These facts come from profiling the dataset and should shape the prompts and the
 │   → draft {action, message_type, reason, confidence, evidence}    │
 └─────────────────────────────────┬─────────────────────────────────┘
                                   ▼
-┌─ Stage 3 · Critic agent  (LLM) ───────────────────────────────────┐
-│ Sees the draft and the facts the router gathered.                 │
+┌─ Stage 3 · Critic agent  (llama-3.3-70b-versatile) ───────────────┐
+│ Sees the draft and a compact summary of the facts gathered.       │
 │ agrees → accept   │   objects → router revises once               │
 │ still disagrees → tie-break (§7.3)                                │
 └─────────────────────────────────┬─────────────────────────────────┘
@@ -96,6 +99,8 @@ These facts come from profiling the dataset and should shape the prompts and the
 ```
 
 **Media is cached up front but read on demand.** Every image and voice note is analysed once in Stage 0, which is cheap and makes reruns identical. The agent still decides *whether* to look at it through `inspect_media`, and can ask a follow-up question ("is there a QR code or a payment link?") that triggers one more cached model call.
+
+The media cache is shipped with the code. That keeps the system runnable even if Groq withdraws the preview vision model, and stops reruns from spending quota on media again.
 
 ---
 
@@ -115,36 +120,42 @@ Each phase ends with a "done when" check, so you know when to move on.
 4. **Done when:** for any `message_id` you can print its full context bundle.
 
 ### Phase 2 — Media perception cache
-1. **Images:** a vision model returns JSON: `kind` (poster, screenshot, photo, circular), `ocr_text`, `summary`, `brands`, `urls`, `qr_present`, `asks_for` (payment, OTP, login, reply, none) and `language`.
-2. **Voice:** speech-to-text returns the transcript. Only record tone or urgency if an audio-capable model actually measures it. Plain speech-to-text gives words, not tone, so otherwise mark tone as unknown rather than guessing.
+1. **Images:** `qwen/qwen3.8-27b` returns JSON: `kind` (poster, screenshot, photo, circular), `ocr_text`, `summary`, `brands`, `urls`, `qr_present`, `asks_for` (payment, OTP, login, reply, none) and `language`. Each image costs about 2,048 input tokens, so all 20 images take roughly 50K tokens once.
+2. **Voice:** `whisper-large-v3` returns the transcript. Only record tone or urgency if an audio-capable model actually measures it. Speech-to-text gives words, not tone, so otherwise mark tone as unknown rather than guessing.
 3. Everything extracted from media is untrusted, exactly like message text.
-4. Cover media in `messages.csv`, `sample_messages.csv` and `message_history.csv` (history holds 19 images and 4 voice notes).
-5. **Done when:** every `media_id` in messages and samples has a cache entry, and you have checked 5 entries by eye against the real files.
+4. Cover all 20 images and 13 voice notes listed in `images.csv` and `voice_notes.csv`. Media IDs are shared between messages, samples and history.
+5. Save the cache to `cache/media/` and ship it with the code.
+6. **Done when:** every `media_id` in messages and samples has a cache entry, and you have checked 5 entries by eye against the real files.
 
 ### Phase 3 — Tools
 1. Build the seven tools in §7.1.
 2. Tools return **facts, never verdicts**. For example, `safety_scan` returns "sender domain `amazonpay-delivery.in` differs from official `amazon.in`; domain is 2 days old; account unverified", not "this is a scam".
-3. **Done when:** each tool returns sensible output for three hand-picked messages.
+3. Keep tool output compact: short JSON, with message text cut to about 200 characters. Every returned token counts against the free-tier budget (§8.2).
+4. **Done when:** each tool returns sensible output for three hand-picked messages.
 
 ### Phase 4 — Router agent
 1. Write the system prompt in this order: role, message types, routing policy, the untrusted-content rule, the evidence rule, reason style, and the JSON output format.
-2. Run the ReAct loop with a cap of 6 tool calls. The agent stops when it is confident. Easy messages should take 1–2 calls and hard ones up to 6.
-3. **Done when:** 10 blind samples run end to end and every result is valid JSON.
+2. Keep the fixed parts of the prompt (system prompt and tool definitions) first and byte-identical on every call, with the message-specific part after them. Groq caches repeated prefixes automatically for the gpt-oss models, and cached tokens don't count against limits (§8.2).
+3. Run the ReAct loop with a cap of 5 tool calls. The agent stops when it is confident. Easy messages should take 1–2 calls and hard ones up to 5. gpt-oss runs one tool call at a time on Groq.
+4. Use gpt-oss at low reasoning effort first. Its reasoning tokens count as output, so raise the effort only if testing shows a real gain.
+5. **Done when:** 10 blind samples run end to end, every result is valid JSON, and token use per message is within the budget in §8.2.
 
 ### Phase 5 — Critic and confidence
 1. Add the critic checks and tie-break (§7.3) and the confidence bands (§7.4).
-2. Record every case where the critic changed a decision, and whether the change was right.
-3. **Done when:** the critic fixes more wrong decisions than it breaks right ones on the blind set.
+2. Run the critic on a different model family (`llama-3.3-70b-versatile`), so it doesn't share the router's blind spots and draws on its own daily quota. Send it the draft plus a compact summary of the facts, not the router's whole transcript.
+3. Record every case where the critic changed a decision, and whether the change was right.
+4. **Done when:** the critic fixes more wrong decisions than it breaks right ones on the blind set.
 
 ### Phase 6 — Evaluate and iterate
 1. Run the blind set and score it (§9).
 2. Sort errors into buckets, fix the biggest bucket by changing **one** thing (policy wording, a tool's output or a critic check), and re-run.
-3. **Done when:** blind accuracy stops improving and no label is hardcoded anywhere.
+3. Budget for the free tier: one blind-set run costs roughly 100K router tokens and 40K critic tokens (§8.2), so plan for one or two runs per day. Unchanged messages are served from the response cache and cost nothing.
+4. **Done when:** blind accuracy stops improving and no label is hardcoded anywhere.
 
 ### Phase 7 — Full run and packaging
-1. Run all 110 messages and write `dataset/output.csv` plus one trace file per message.
+1. Run all 110 messages and write `dataset/output.csv` plus one trace file per message. The run is resumable: every finished message is cached, so if a daily quota runs out, the next run continues where it stopped. Expect the full run to need one to two days of free quota.
 2. Run the submission checklist (§12).
-3. Write the README (setup, run command), add `.env.example`, zip the code, and keep `log.txt` for submission.
+3. Write the README (setup, getting a free Groq API key, run command), add `.env.example`, zip the code with the media cache, and keep `log.txt` for submission.
 
 ---
 
@@ -193,7 +204,7 @@ These are principles listed in priority order, each with its reason. They guide 
 | `business_relationship` | user, business | Why the user knows the business, last activity, promotions allowed, opt-out date, opens, dismissals, replies | `user_business_history.csv` |
 | `search_history` | user, query, scope (same sender · same conversation · all) | Top matches from **this user's** history: ID, sender, short text, and the user's reaction | `message_history.csv` + `message_events.csv` |
 | `inspect_media` | media ID, optional question | The cached image or voice analysis; an optional question triggers one more cached model call | media cache |
-| `safety_scan` | text | URLs and domains compared with known official domains; requests for OTP, PIN, password or card; deadline or blocking pressure; instruction-like phrases; forward count | `business_accounts.csv` (official domains) |
+| `safety_scan` | text | URLs and domains compared with known official domains; requests for OTP, PIN, password or card; deadline or blocking pressure; instruction-like phrases; forward count; optional prompt-injection score from `llama-prompt-guard-2-86m` | `business_accounts.csv` (official domains), Groq |
 
 ### 7.2 Choosing evidence
 1. Search only the receiving user's own history.
@@ -203,7 +214,7 @@ These are principles listed in priority order, each with its reason. They guide 
 5. Code checks every cited ID. Invalid IDs are dropped; if none remain, write `none` and lower the confidence.
 
 ### 7.3 Critic and tie-break
-The critic sees the draft and the facts the router gathered. It checks:
+The critic runs on a different model from the router (§8.1). It sees the draft and a compact summary of the facts the router gathered. It checks:
 1. Does the action fit the type and the policy (a scam is always muted)?
 2. Do the gathered facts support the decision, or was an obvious check skipped (for example a business message with no domain check)? If one was skipped, the router is sent back to run it.
 3. Is the evidence relevant, and does the user's reaction to it support the decision?
@@ -240,25 +251,54 @@ These show how the agent's path changes with the message. They are not a fixed s
 
 ---
 
-## 8. Reliability and reproducibility
+## 8. Models, free-tier budget and reliability
 
-- **Fixed randomness:** temperature 0 and pinned model versions.
-- **Caching:** every model call is cached under a hash of the model, prompt and tool results, so reruns are identical and free.
-- **Independence:** each message is processed on its own, so order does not matter and messages can run in parallel with a concurrency limit.
-- **Failures:** retry with backoff. If a message still fails, write a fallback row (`digest`, `unknown`, confidence 0.50, evidence `none`, reason "Could not be analysed; held for later review.") so the file always has 110 rows.
-- **Traces:** save each message's tool calls, results, draft, critic verdict and final row to `traces/<message_id>.json` for debugging and to show the agent's work.
-- **Secrets:** API keys come from environment variables (`.env`, never committed).
-- **Cost:** about 110 messages × 5 tool calls plus a critic call, which is well under 1,000 model calls.
+### 8.1 Models (Groq free tier)
 
-**Suggested stack:**
+| Job | Model on Groq | Notes |
+|---|---|---|
+| Router agent | `openai/gpt-oss-120b` | Production model. Supports custom tool calling and JSON mode, and caches prompts automatically. Calls tools one at a time (no parallel tool calls). |
+| Router overflow | `openai/gpt-oss-20b` | Same family, prompts and caching, with its own daily quota. Used only when the 120b quota runs out. Each trace records which model decided. |
+| Critic | `llama-3.3-70b-versatile` | Production model from a different family, with its own quota. Its limits aren't in Groq's public table, so check your account's limits page. `qwen/qwen3.8-27b` is the alternative. |
+| Images | `qwen/qwen3.8-27b` | Preview model that accepts images (up to 3 per request, about 2,048 tokens each) and supports JSON mode. Run once; results are cached and shipped. |
+| Voice notes | `whisper-large-v3` | Speech-to-text. The 13 short clips fit easily within the audio limits. |
+| Injection signal (optional) | `meta-llama/llama-prompt-guard-2-86m` | Small preview classifier that scores text for prompt-injection attempts. It feeds `safety_scan` as one more fact. |
+| History search | none | No user has more than 32 past messages, so no embedding model is needed. |
 
-| Part | Suggestion |
+**Connection:** one OpenAI-compatible client pointed at `https://api.groq.com/openai/v1`. The base URL, the API key (`GROQ_API_KEY`) and every model name come from environment variables. Switching to local Ollama, a paid tier or another provider is then a config change. Groq marks preview models as liable to be withdrawn at short notice, which is another reason the media cache is shipped.
+
+### 8.2 Free-tier budget
+
+Groq's published limits for the gpt-oss models are below. Your account's limits page has the exact numbers, and Groq's docs label this table as base limits.
+
+| Limit | gpt-oss-120b / gpt-oss-20b (each) |
 |---|---|
-| Router | A strong tool-calling model, e.g. Claude Sonnet 5.5 (`claude-sonnet-5-5`) |
-| Critic | The same model, or Claude Opus 5.5 (`claude-opus-5-5`) for a stricter review |
-| Images | A vision-capable model (the router model works) |
-| Voice | Speech-to-text such as Whisper, run locally |
-| Search | In-memory Python; history is only 412 rows |
+| Requests per minute | 30 |
+| Requests per day | 1,000 |
+| Tokens per minute | 8,000 |
+| Tokens per day | 200,000 |
+
+Limits apply per model across your whole account. Going over returns HTTP 429 with a `retry-after` header. **Tokens per day is the binding limit**, so the design works around it:
+
+- **Prompt caching.** gpt-oss caches repeated prompt prefixes automatically (the cache lasts about 2 hours idle), and cached tokens don't count toward limits. The fixed prefix (policy, types, style examples and tool definitions, about 4.5K tokens) is sent first and identically on every call. Within the ReAct loop the earlier turns become a cached prefix too, so each extra step mostly costs only its new tokens. Groq's docs don't say whether caching applies on the free plan, so confirm it in Phase 4 from the token usage each response reports.
+- **Budget per message.** Aim for about 4K counted tokens for the router (new input plus output, including reasoning) and about 1.5K for the critic. Compact tool output and low reasoning effort keep it there.
+- **Rough totals (estimates).**
+  - Full run of 110 messages: about 440K router tokens and 165K critic tokens. With 120b and 20b sharing the router work, that's one to two days of free quota. If the critic's daily quota is under 165K, split the critic work between `llama-3.3-70b-versatile` and `qwen/qwen3.8-27b`.
+  - One blind-set run of 25 samples: about 100K router tokens and 40K critic tokens.
+  - Media pass: about 50K tokens once.
+- **Pace.** 8K tokens per minute allows only a couple of uncached router requests a minute, so process messages one at a time.
+- **Running out.** Read the rate-limit headers on each response and wait out a 429. When a model's daily quota is spent, move the router to the overflow model, or stop cleanly and resume the next day. Every finished message is cached, so nothing is lost.
+- **If the free limits block progress,** Groq's paid Developer plan runs the same code with higher limits.
+
+### 8.3 Reliability and reproducibility
+
+- **Fixed randomness:** temperature 0, a fixed seed (Groq treats the seed as best effort) and pinned model IDs.
+- **Caching:** every model response is saved on disk under a hash of the model, prompt and tool results. Reruns read from disk, so results are identical and no quota is used.
+- **Independence:** each message is processed on its own, so the order doesn't matter.
+- **Failures:** retry with backoff, honouring `retry-after`. If a message still fails, write a fallback row (`digest`, `unknown`, confidence 0.50, evidence `none`, reason "Could not be analysed; held for later review.") so the file always has 110 rows.
+- **Traces:** save each message's tool calls, results, draft, critic verdict, final row, model used and token usage to `traces/<message_id>.json`, for debugging and to show the agent's work.
+- **Secrets:** `GROQ_API_KEY` comes from the environment (`.env`, never committed); `.env.example` lists the variable names only.
+- **Data:** message text and media are sent to Groq. The dataset is synthetic, so this is acceptable here, and the README says so.
 
 ---
 
@@ -269,7 +309,7 @@ These show how the agent's path changes with the message. They are not a fixed s
    - action accuracy
    - type accuracy
    - evidence precision and recall against the sample IDs
-   - reason similarity (embedding similarity or an LLM judge)
+   - reason similarity (plain text overlap first; an LLM judge only if spare quota allows)
    - calibration: high-confidence rows should be right more often than low-confidence ones
 3. **Error buckets:** safety, personalization, urgency, media, evidence, type confusion.
 4. **One change per run,** with each run's scores recorded in an evaluation log.
@@ -289,13 +329,15 @@ These show how the agent's path changes with the message. They are not a fixed s
 ```text
 code/
 ├── main.py                # runs everything and writes dataset/output.csv
+├── llm.py                 # one OpenAI-compatible client: config, caching, retries, rate limits
 ├── context/               # CSV loaders and indexes
 ├── perception/            # builds the image and voice cache
 ├── tools/                 # one file per tool
 ├── agent/                 # router, critic, ReAct loop
 ├── prompts/               # policy.md, types.md, router_system.md, critic_system.md
 └── evaluation/main.py     # scores the blind sample set
-cache/  traces/            # generated, git-ignored
+cache/media/               # image and voice analysis, shipped with the code
+cache/llm/  traces/        # generated, git-ignored
 README.md  .env.example  requirements.txt
 ```
 
@@ -310,8 +352,11 @@ README.md  .env.example  requirements.txt
 | Invented evidence IDs | Code validates every ID; invalid ones are dropped |
 | Overfitting to the 30 samples | Blind split, style examples only, no hardcoded labels |
 | Guessed voice tone | Only record tone if an audio model measures it |
-| Model or network failures | Retries plus a guaranteed fallback row |
-| Different results on each run | Temperature 0, pinned models, cached calls |
+| Model, network or rate-limit failures | Retries that honour `retry-after`, plus a guaranteed fallback row |
+| Free-tier quota runs out mid-run | Resumable response cache, an overflow router model, a token budget per message, and runs spread across days |
+| A preview model (vision, Prompt Guard) is withdrawn | Media analysis is cached and shipped; every model is set by config |
+| Message data leaves the machine | The dataset is synthetic and no secrets go into prompts; the README says so |
+| Different results on each run | Temperature 0, a fixed seed, pinned model IDs, cached responses |
 | Broken CSV from commas or line breaks | Proper CSV quoting, checked by the output guard |
 
 ---
@@ -322,5 +367,5 @@ README.md  .env.example  requirements.txt
 - [ ] Columns are exactly `message_id,action,message_type,reason,confidence,evidence_message_ids`, in that order.
 - [ ] `action` and `message_type` use only the allowed values; `confidence` is between 0 and 1.
 - [ ] `evidence_message_ids` is `none` or real history IDs separated by `;`.
-- [ ] `code.zip` contains the code, prompts, README with run command, and `.env.example`, and no secrets.
+- [ ] `code.zip` contains the code, prompts, the media cache, `.env.example`, and a README that explains getting a free Groq API key, setting `GROQ_API_KEY` and running the system. It contains no secrets.
 - [ ] `$HOME/hackerrank_orchestrate_august26/log.txt` is ready to upload as the chat transcript.
