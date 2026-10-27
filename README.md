@@ -19,6 +19,7 @@ Read [`problem_statement.md`](./problem_statement.md) for the full task spec, in
 ```text
 .
 ├── AGENTS.md                         # Rules for AI coding tools + transcript logging
+├── AGENTIC_WORKFLOW.md               # AI Agentic architecture and step-by-step workflow
 ├── problem_statement.md              # Full challenge statement
 ├── README.md                         # You are here
 └── dataset/
