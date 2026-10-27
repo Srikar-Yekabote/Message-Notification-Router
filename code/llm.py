@@ -35,6 +35,14 @@ class GroqError(Exception):
     """A request failed for a reason retrying will not fix, or retries ran out."""
 
 
+class RateLimitError(GroqError):
+    """A rate limit that will not clear soon, such as a spent daily quota. Waiting is pointless."""
+
+    def __init__(self, message: str, retry_after: Optional[float] = None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 ENV_FILES = (REPO_ROOT / ".env", REPO_ROOT / "code" / ".env")
 
 
@@ -71,6 +79,7 @@ class GroqClient:
         cache_dir: Optional[Path] = DEFAULT_CACHE_DIR,
         max_retries: int = 6,
         timeout: float = 120.0,
+        max_wait: float = 90.0,
         transport: Optional[Transport] = None,
         sleep: Callable[[float], None] = time.sleep,
     ):
@@ -79,9 +88,12 @@ class GroqClient:
         self.cache_dir = Path(cache_dir) if cache_dir else None
         self.max_retries = max_retries
         self.timeout = timeout
+        self.max_wait = max_wait
         self._transport = transport or self._urllib_transport
         self._sleep = sleep
         self.live_calls = 0
+        self.cache_hits = 0
+        self.last_from_cache = False
         self.last_rate_limits: Dict[str, str] = {}
 
     # ---- public calls --------------------------------------------------
@@ -94,16 +106,16 @@ class GroqClient:
         temperature: float = 0.0,
         seed: Optional[int] = 7,
         max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[str] = None,
+        reasoning_effort: Optional[str] = None,
         use_cache: bool = True,
     ) -> Dict[str, Any]:
         """POST /chat/completions and return the parsed JSON response."""
         payload: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temperature}
-        if seed is not None:
-            payload["seed"] = seed
-        if response_format is not None:
-            payload["response_format"] = response_format
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
+        optional = {"seed": seed, "response_format": response_format, "max_tokens": max_tokens,
+                    "tools": tools, "tool_choice": tool_choice, "reasoning_effort": reasoning_effort}
+        payload.update({key: value for key, value in optional.items() if value is not None})
         key = _hash("chat", payload)
         return self._cached(key, use_cache, lambda: self._post_json("/chat/completions", payload))
 
@@ -133,7 +145,9 @@ class GroqClient:
 
     def _cached(self, key: str, use_cache: bool, call: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
         path = self.cache_dir / f"{key}.json" if self.cache_dir else None
-        if use_cache and path and path.exists():
+        self.last_from_cache = bool(use_cache and path and path.exists())
+        if self.last_from_cache:
+            self.cache_hits += 1
             return json.loads(path.read_text(encoding="utf-8"))
         response = call()
         if path:
@@ -170,9 +184,12 @@ class GroqClient:
             self.last_rate_limits = {k: v for k, v in response_headers.items() if k.lower().startswith("x-ratelimit")}
             if 200 <= status < 300:
                 return json.loads(data.decode("utf-8"))
+            wait = _retry_after(response_headers)
+            if status == 429 and (_daily_limit(data) or (wait or 0) > self.max_wait):
+                raise RateLimitError(f"{endpoint} rate limited: {_error_message(data)}", wait)
             retryable = status >= 500 or (status == 429 and not _too_large(data))
             if retryable and attempt < self.max_retries:
-                self._sleep(_retry_after(response_headers) or min(2 ** attempt, 30))
+                self._sleep(wait or min(2 ** attempt, 30))
                 continue
             raise GroqError(f"{endpoint} returned HTTP {status}: {_error_message(data)}")
         raise GroqError(f"{endpoint}: retries exhausted")
@@ -224,6 +241,12 @@ def _retry_after(headers: Dict[str, str]) -> Optional[float]:
 def _too_large(data: bytes) -> bool:
     """A 429 for a single request that exceeds a per-minute limit can never succeed by waiting."""
     return "request too large" in _error_message(data).lower()
+
+
+def _daily_limit(data: bytes) -> bool:
+    """A 429 for a spent daily quota, which only clears the next day."""
+    message = _error_message(data).lower()
+    return "per day" in message or "(tpd)" in message or "(rpd)" in message
 
 
 def _error_message(data: bytes) -> str:

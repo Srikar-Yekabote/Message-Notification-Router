@@ -6,6 +6,7 @@ Usage (from the repository root):
     python3 code/main.py inspect MESSAGE_ID    print the context bundle for one message
     python3 code/main.py perceive              analyse images and voice notes into cache/media/
     python3 code/main.py tool MESSAGE_ID NAME  run one of the agent's tools ('all' runs every tool)
+    python3 code/main.py route MESSAGE_ID ...  route messages with the router agent (--blind: the blind samples)
 """
 
 from __future__ import annotations
@@ -15,8 +16,9 @@ import json
 import sys
 from typing import List, Optional
 
+from agent import QuotaExhausted, Router
 from context import load_store
-from llm import GroqClient, load_env_file
+from llm import REPO_ROOT, GroqClient, load_env_file
 from perception import MEDIA_CACHE_DIR, pending_media, perceive_all
 from tools import TOOL_NAMES, ToolContext, render, run_tool
 
@@ -36,6 +38,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     tool.add_argument("name", choices=TOOL_NAMES + ["all"], help="the tool to run, or 'all' for every tool")
     tool.add_argument("arguments", nargs="?", default="{}",
                       help="""the tool's arguments as JSON, e.g. '{"query": "refund", "scope": "all"}'""")
+    route = commands.add_parser("route", help="route messages with the router agent (uses Groq); traces go to traces/")
+    route.add_argument("message_ids", nargs="*", metavar="MESSAGE_ID", help="IDs from messages.csv or sample_messages.csv")
+    route.add_argument("--blind", action="store_true", help="also route every blind-test sample")
     args = parser.parse_args(argv)
 
     load_env_file()
@@ -46,6 +51,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return perceive_media(store, args.force, args.only)
     if args.command == "tool":
         return run_tools(store, args.message_id, args.name, args.arguments)
+    if args.command == "route":
+        return route_messages(store, args.message_ids, args.blind)
     return inspect_message(store, args.message_id, args.history)
 
 
@@ -112,6 +119,45 @@ def run_tools(store, message_id: str, name: str, arguments: str) -> int:
         print(f"== {tool_name}: {size} characters as the agent sees it (about {size // 4} tokens)")
         print(json.dumps(result, indent=2, ensure_ascii=False))
     return 1 if failed else 0
+
+
+def route_messages(store, message_ids: List[str], blind: bool) -> int:
+    if blind:
+        split = json.loads((REPO_ROOT / "code" / "evaluation" / "sample_split.json").read_text(encoding="utf-8"))
+        message_ids = list(dict.fromkeys(message_ids + split["blind_test"]))
+    unknown = [m for m in message_ids if m not in store.incoming]
+    if unknown or not message_ids:
+        print(f"Unknown message ID(s): {', '.join(unknown)}" if unknown else "Name message IDs or pass --blind.",
+              file=sys.stderr)
+        return 2
+    client = GroqClient()
+    if not client.api_key:
+        print("GROQ_API_KEY is not set, so only decisions already in cache/llm/ can be replayed.", file=sys.stderr)
+    router = Router(store, client)
+    fallbacks, counted = 0, 0
+    for message_id in message_ids:
+        try:
+            result = router.route(message_id)
+        except QuotaExhausted as error:
+            print(f"\nStopped at {message_id}: every router model is rate limited ({error}).", file=sys.stderr)
+            print("Rerun the same command later; finished messages come from the cache.", file=sys.stderr)
+            return 3
+        row, trace = result.row, result.trace
+        usage = trace["usage"]
+        counted += usage["counted_tokens"]
+        fallbacks += result.fell_back
+        tools = sum(len((s["arguments"] or {}).get("requests", [])) if isinstance(s["arguments"], dict) else 1
+                    for s in trace["steps"])
+        source = "cached" if usage["live_calls"] == 0 else f"{usage['live_calls']} live call(s)"
+        print(f"{message_id:<16} {row['action']:<7} {row['message_type']:<16} {row['confidence']}  "
+              f"evidence={row['evidence_message_ids']}")
+        print(f"{'':<16} {row['reason']}")
+        print(f"{'':<16} [{len(trace['steps'])} gather turn(s), {tools} tool(s), {usage['counted_tokens']:,} tokens, "
+              f"{source}, {', '.join(trace['models']) or 'no model'}]"
+              + (f"  FALLBACK: {trace['error']}" if result.fell_back else ""))
+    print(f"\nrouted {len(message_ids)}, fallbacks {fallbacks}, counted tokens {counted:,} "
+          f"(about {counted // max(len(message_ids), 1):,} per message)")
+    return 1 if fallbacks else 0
 
 
 def inspect_message(store, message_id: str, history_limit: int) -> int:

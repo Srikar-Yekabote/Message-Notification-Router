@@ -5,7 +5,7 @@ import unittest
 from dataclasses import replace
 
 from context import load_store
-from tools import TOOL_DEFINITIONS, TOOL_NAMES, ToolContext, render, run_tool
+from tools import GATHER_DEFINITION, TOOL_DEFINITIONS, TOOL_NAMES, ToolContext, render, run_gather, run_tool
 from tools.base import UNTRUSTED_CLOSE, UNTRUSTED_OPEN, untrusted
 from tools.safety import find_domains
 
@@ -102,6 +102,47 @@ class RegistryTest(ToolTestCase):
             ("inspect_media", {"question": "x" * 500}),
         ]:
             self.assertIn("error", self.call("sample_msg_048", name, arguments), (name, arguments))
+
+
+class GatherTest(ToolTestCase):
+    def gather(self, message_id, requests):
+        return run_gather(ToolContext.for_message(self.store, message_id), {"requests": requests})
+
+    def test_definition_offers_every_tool(self):
+        item = GATHER_DEFINITION["function"]["parameters"]["properties"]["requests"]["items"]
+        self.assertEqual(item["properties"]["tool"]["enum"], TOOL_NAMES)
+        for name in TOOL_NAMES:
+            self.assertIn(f"- {name}:", GATHER_DEFINITION["function"]["description"])
+
+    def test_results_come_back_in_request_order(self):
+        result = self.gather("msg_056", [
+            {"tool": "group_context"},
+            {"tool": "search_history", "query": "clinic", "scope": "all", "limit": 2},
+        ])
+        self.assertEqual([r["tool"] for r in result["results"]], ["group_context", "search_history"])
+        self.assertTrue(result["results"][0]["mentions_recipient"])
+        self.assertEqual(len(result["results"][1]["results"]), 2)
+
+    def test_arguments_a_tool_does_not_take_are_ignored_and_reported(self):
+        results = self.gather("msg_026", [
+            {"tool": "user_profile", "query": "", "question": None},
+            {"tool": "sender_profile", "limit": 5, "scope": "same_sender"},
+        ])["results"]
+        self.assertNotIn("ignored_arguments", results[0])
+        self.assertEqual(results[1]["ignored_arguments"], ["limit", "scope"])
+        self.assertEqual(results[1]["kind"], "business")
+
+    def test_bad_requests_are_errors(self):
+        results = self.gather("msg_026", [
+            {"tool": "make_coffee"},
+            {"tool": "search_history", "scope": "everywhere"},
+            "sender_profile",
+        ])["results"]
+        self.assertTrue(all("error" in r for r in results))
+
+    def test_request_list_is_required_and_capped(self):
+        self.assertIn("error", run_gather(ToolContext.for_message(self.store, "msg_026"), "{}"))
+        self.assertIn("error", self.gather("msg_026", [{"tool": "user_profile"}] * 7))
 
 
 class ProfileTest(ToolTestCase):

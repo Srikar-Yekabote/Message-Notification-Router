@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from llm import GroqClient, GroqError, load_env_file
+from llm import GroqClient, GroqError, RateLimitError, load_env_file
 
 CHAT_REPLY = {"choices": [{"message": {"content": "hello"}}]}
 
@@ -105,6 +105,38 @@ class GroqClientTest(unittest.TestCase):
         with self.assertRaises(GroqError):
             self.chat(client)
         self.assertEqual(self.chat(client), CHAT_REPLY)
+
+    def test_tool_calling_options_are_sent(self):
+        transport = FakeTransport(ok(CHAT_REPLY))
+        tools = [{"type": "function", "function": {"name": "gather", "parameters": {"type": "object"}}}]
+        self.client(transport).chat("m", [{"role": "user", "content": "hi"}], tools=tools, tool_choice="auto",
+                                    reasoning_effort="low", max_tokens=50)
+        body = json.loads(transport.calls[0]["body"])
+        self.assertEqual((body["tools"], body["tool_choice"], body["reasoning_effort"], body["max_tokens"]),
+                         (tools, "auto", "low", 50))
+
+    def test_cache_hits_are_reported(self):
+        client = self.client(FakeTransport(ok(CHAT_REPLY)))
+        self.chat(client)
+        self.assertFalse(client.last_from_cache)
+        self.chat(client)
+        self.assertTrue(client.last_from_cache)
+        self.assertEqual((client.live_calls, client.cache_hits), (1, 1))
+
+    def test_long_rate_limit_waits_are_not_slept_through(self):
+        limited = (429, {"retry-after": "3600"}, b'{"error": {"message": "slow down"}}')
+        transport = FakeTransport(limited)
+        with self.assertRaises(RateLimitError) as caught:
+            self.chat(self.client(transport))
+        self.assertEqual(caught.exception.retry_after, 3600.0)
+        self.assertEqual(self.sleeps, [])
+
+    def test_daily_quota_is_not_retried(self):
+        spent = (429, {}, b'{"error": {"message": "Rate limit reached on tokens per day (TPD): Limit 200000"}}')
+        transport = FakeTransport(spent)
+        with self.assertRaises(RateLimitError):
+            self.chat(self.client(transport))
+        self.assertEqual((len(transport.calls), self.sleeps), (1, []))
 
     def test_transcribe_sends_multipart_and_caches(self):
         audio = self.cache / "clip.mp3"
