@@ -123,6 +123,16 @@ class GroqClientTest(unittest.TestCase):
         self.assertTrue(client.last_from_cache)
         self.assertEqual((client.live_calls, client.cache_hits), (1, 1))
 
+    def test_cached_chat_never_calls_the_api(self):
+        transport = FakeTransport(ok(CHAT_REPLY))
+        client = self.client(transport)
+        messages = [{"role": "user", "content": "hi"}]
+        self.assertIsNone(client.cached_chat("some-model", messages))
+        client.chat("some-model", messages)
+        self.assertEqual(client.cached_chat("some-model", messages), CHAT_REPLY)
+        self.assertIsNone(client.cached_chat("other-model", messages))
+        self.assertEqual(len(transport.calls), 1)
+
     def test_long_rate_limit_waits_are_not_slept_through(self):
         limited = (429, {"retry-after": "3600"}, b'{"error": {"message": "slow down"}}')
         transport = FakeTransport(limited)

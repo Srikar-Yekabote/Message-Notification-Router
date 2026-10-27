@@ -112,12 +112,31 @@ class GroqClient:
         use_cache: bool = True,
     ) -> Dict[str, Any]:
         """POST /chat/completions and return the parsed JSON response."""
-        payload: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temperature}
-        optional = {"seed": seed, "response_format": response_format, "max_tokens": max_tokens,
-                    "tools": tools, "tool_choice": tool_choice, "reasoning_effort": reasoning_effort}
-        payload.update({key: value for key, value in optional.items() if value is not None})
-        key = _hash("chat", payload)
-        return self._cached(key, use_cache, lambda: self._post_json("/chat/completions", payload))
+        payload = _chat_payload(model, messages, response_format, temperature, seed, max_tokens,
+                                tools, tool_choice, reasoning_effort)
+        return self._cached(_hash("chat", payload), use_cache, lambda: self._post_json("/chat/completions", payload))
+
+    def cached_chat(
+        self,
+        model: str,
+        messages: List[Dict[str, Any]],
+        response_format: Optional[Dict[str, Any]] = None,
+        temperature: float = 0.0,
+        seed: Optional[int] = 7,
+        max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[str] = None,
+        reasoning_effort: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """The cached response for exactly this chat call, or None. Never calls the API."""
+        payload = _chat_payload(model, messages, response_format, temperature, seed, max_tokens,
+                                tools, tool_choice, reasoning_effort)
+        path = self.cache_dir / f"{_hash('chat', payload)}.json" if self.cache_dir else None
+        if not (path and path.exists()):
+            return None
+        self.cache_hits += 1
+        self.last_from_cache = True
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def transcribe(
         self,
@@ -221,6 +240,15 @@ def encode_multipart(fields: Dict[str, str], file_field: str, filename: str, con
     )
     parts.append(f"--{boundary}--\r\n".encode("utf-8"))
     return f"multipart/form-data; boundary={boundary}", b"".join(parts)
+
+
+def _chat_payload(model, messages, response_format, temperature, seed, max_tokens,
+                  tools, tool_choice, reasoning_effort) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temperature}
+    optional = {"seed": seed, "response_format": response_format, "max_tokens": max_tokens,
+                "tools": tools, "tool_choice": tool_choice, "reasoning_effort": reasoning_effort}
+    payload.update({key: value for key, value in optional.items() if value is not None})
+    return payload
 
 
 def _hash(kind: str, payload: Dict[str, Any]) -> str:

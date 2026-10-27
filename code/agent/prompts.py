@@ -7,6 +7,7 @@ can cache them as a shared prefix; only the intake and tool results differ.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import List
 
 from context import ContextStore
 from context.records import Message
@@ -27,15 +28,19 @@ def build_system_prompt(prompts_dir: Path = PROMPTS_DIR) -> str:
 
 def intake(message: Message, store: ContextStore) -> str:
     """The incoming message as the router first sees it: plain facts, with the text marked untrusted."""
+    instruction = ("Route this incoming WhatsApp message for its recipient. Gather the facts you need with the tools, "
+                   "then reply with the JSON object.")
+    return "\n".join([instruction, ""] + message_facts(message, store))
+
+
+def message_facts(message: Message, store: ContextStore) -> List[str]:
+    """One line per fact about the incoming message; the text itself is marked untrusted."""
     m = message
     if m.business_id:
         sender = f"business account {m.business_id}"
     else:
         sender = f"user {m.sender_user_id}"
     lines = [
-        "Route this incoming WhatsApp message for its recipient. Gather the facts you need with the tools, "
-        "then reply with the JSON object.",
-        "",
         f"message_id: {m.message_id}",
         f"received_at: {m.created_at:%Y-%m-%d %H:%M} ({m.created_at:%A})",
         f"recipient: user {m.user_id}",
@@ -53,4 +58,4 @@ def intake(message: Message, store: ContextStore) -> str:
         lines.append("attachment: none")
     lines.append(f"forwarded_count: {m.forwarded_count}")
     lines.append(f"text: {untrusted(m.text, INTAKE_TEXT_LIMIT) or '(no text)'}")
-    return "\n".join(lines)
+    return lines
