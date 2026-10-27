@@ -112,10 +112,15 @@ def perceive_all(
     return result
 
 
+def image_data_url(path: Path) -> str:
+    """The image file as a base64 data URL, the form the vision model accepts."""
+    mime = MIME_TYPES.get(Path(path).suffix.lower(), "image/jpeg")
+    return f"data:{mime};base64,{base64.b64encode(Path(path).read_bytes()).decode('ascii')}"
+
+
 def analyse_image(client, path: Path, model: str, prompt: str) -> Dict[str, Any]:
     """Ask the vision model for a factual JSON description of one image."""
-    mime = MIME_TYPES.get(Path(path).suffix.lower(), "image/jpeg")
-    data_url = f"data:{mime};base64,{base64.b64encode(Path(path).read_bytes()).decode('ascii')}"
+    data_url = image_data_url(path)
     instructions = [prompt, prompt + "\n\nYour previous reply was not valid JSON. Reply with the JSON object only."]
     last_error: Optional[ValueError] = None
     for text in instructions:

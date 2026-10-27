@@ -3,7 +3,7 @@
 > **Challenge:** HackerRank Orchestrate — Message Notification Router
 > **Output contract:** `message_id,action,message_type,reason,confidence,evidence_message_ids`
 > **Input:** 110 messages in `dataset/messages.csv` · 30 solved examples in `dataset/sample_messages.csv`
-> **Status:** design only, no code yet. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
+> **Status:** Phases 0–3 are built (prompts, context store, media cache, tools); Phase 4, the router agent, is next. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
 > **Models:** free, open models on Groq's hosted free tier. The free tier's daily token limit shapes several choices below (§8).
 
 ---
@@ -128,10 +128,10 @@ Each phase ends with a "done when" check, so you know when to move on.
 6. **Done when:** every `media_id` in messages and samples has a cache entry, and you have checked 5 entries by eye against the real files.
 
 ### Phase 3 — Tools
-1. Build the seven tools in §7.1.
+1. Build the seven tools in §7.1 in `code/tools/`, each bound to the message being routed, with their function-calling definitions.
 2. Tools return **facts, never verdicts**. For example, `safety_scan` returns "sender domain `amazonpay-delivery.in` differs from official `amazon.in`; domain is 2 days old; account unverified", not "this is a scam".
 3. Keep tool output compact: short JSON, with message text cut to about 200 characters. Every returned token counts against the free-tier budget (§8.2).
-4. **Done when:** each tool returns sensible output for three hand-picked messages.
+4. **Done when:** each tool returns sensible output for three hand-picked messages. Check with `python3 code/main.py tool MESSAGE_ID all`, which also prints each result's size.
 
 ### Phase 4 — Router agent
 1. Write the system prompt in this order: role, message types, routing policy, the untrusted-content rule, the evidence rule, reason style, and the JSON output format.
@@ -196,15 +196,17 @@ These are principles listed in priority order, each with its reason. They guide 
 
 ### 7.1 Tools
 
+Every tool is bound to the message being routed. The recipient, sender, group and time come from the message itself, so the agent passes only real choices (a search query, a question about an image) and cannot read another user's data or anything dated at or after the message. Text that came from a sender comes back inside `<untrusted_content>` tags. A tool that does not apply, such as `group_context` on a personal chat, says so instead of failing, and bad arguments come back as an error the agent can correct.
+
 | Tool | Input | Returns (facts only) | Data source |
 |---|---|---|---|
-| `user_profile` | user, timestamp | Do-not-disturb window and whether the message falls inside it; 30-day opens, replies, dismissals and reports; notifications sent and dismissed that day | `users.csv`, `daily_notification_summary.csv` |
-| `sender_profile` | user, sender or business | **Person:** past messages to this user and how the user reacted; whether they are a group admin. **Business:** verified flag, official vs used domain, domain and account age, messages and reports in 30 days | `message_history.csv`, `message_events.csv`, `group_members.csv`, `business_accounts.csv` |
-| `group_context` | group, user | Group type, size and activity; this user's role, read, reply and dismiss counts; whether the user muted the group | `groups.csv`, `group_members.csv` |
-| `business_relationship` | user, business | Why the user knows the business, last activity, promotions allowed, opt-out date, opens, dismissals, replies | `user_business_history.csv` |
-| `search_history` | user, query, scope (same sender · same conversation · all) | Top matches from **this user's** history: ID, sender, short text, and the user's reaction | `message_history.csv` + `message_events.csv` |
-| `inspect_media` | media ID, optional question | The cached image or voice analysis; an optional question triggers one more cached model call | media cache |
-| `safety_scan` | text | URLs and domains compared with known official domains; requests for OTP, PIN, password or card; deadline or blocking pressure; instruction-like phrases; forward count; optional prompt-injection score from `llama-prompt-guard-2-86m` | `business_accounts.csv` (official domains), Groq |
+| `user_profile` | none | Do-not-disturb window and whether the message falls inside it; 30-day opens, replies, dismissals and reports; reactions to all past messages; average notifications sent and dismissed over the last 7 days on record, and how many days before the message that record ends | `users.csv`, `daily_notification_summary.csv` |
+| `sender_profile` | none | **Person:** past messages to this user and how the user reacted; their group role. **Business:** verified flag, official vs used domain (null when no official domain is on record), domain and account age, messages and reports in 30 days. Both: the user's reactions and the 3 most recent messages from this sender | `message_history.csv`, `message_events.csv`, `group_members.csv`, `business_accounts.csv` |
+| `group_context` | none | Group type, size and activity; this user's role, read, reply and dismiss counts and reactions in the group; whether the user muted the group; the sender's role; who the message @mentions and whether that includes this user | `groups.csv`, `group_members.csv` |
+| `business_relationship` | none | Whether a relationship is on record; why the user knows the business, last activity and days since, promotions allowed, opt-out date, opens, dismissals, replies | `user_business_history.csv` |
+| `search_history` | query, scope (same_sender · same_group · all), limit (≤ 8) | Keyword matches from **this user's** history (text, image summary or transcript, business name): ID, sender, short text, the user's reaction and the matched words; an empty query lists the most recent | `message_history.csv` + `message_events.csv` |
+| `inspect_media` | optional question | **Image:** kind, summary, text in the image, brands, links, QR code, what it asks for, deadlines. **Voice:** transcript; tone is reported as not measured. A question about an image triggers one more cached vision call | media cache |
+| `safety_scan` | none | Scans the message text, image text and transcript. Links: each domain compared with the sender's own and official domains and with every known official domain (exact owner, or a look-alike containing a brand name), plus public link shorteners. Phrases: OTP or code, PIN or password, card details, identity checks, payment, open a link, forward to all, deadline or threat, and text addressing the router, each with a short snippet. Also the image's requests and QR code, the forward count, and an opt-in prompt-injection score | message text, media cache, `business_accounts.csv`, Groq (opt-in) |
 
 ### 7.2 Choosing evidence
 1. Search only the receiving user's own history.
@@ -262,7 +264,7 @@ These show how the agent's path changes with the message. They are not a fixed s
 | Critic | `llama-3.3-70b-versatile` | Production model from a different family, with its own quota. Its limits aren't in Groq's public table, so check your account's limits page. `qwen/qwen3.8-27b` is the alternative. |
 | Images | `qwen/qwen3.8-27b` | Preview model that accepts images (up to 3 per request, about 2,048 tokens each) and supports JSON mode. Run once; results are cached and shipped. |
 | Voice notes | `whisper-large-v3` | Speech-to-text. The 13 short clips fit easily within the audio limits. |
-| Injection signal (optional) | `meta-llama/llama-prompt-guard-2-86m` | Small preview classifier that scores text for prompt-injection attempts. It feeds `safety_scan` as one more fact. |
+| Injection signal (optional) | `meta-llama/llama-prompt-guard-2-86m` | Small preview classifier that scores text for prompt-injection attempts. Off unless `PROMPT_GUARD_MODEL` is set; then it feeds `safety_scan` as one more fact. In testing it scored the "ignore all previous routing rules" sample 0.998 but fake "router metadata" text only 0.001, so `safety_scan`'s phrase check remains the main signal. |
 | History search | none | No user has more than 32 past messages, so no embedding model is needed. |
 
 **Connection:** one OpenAI-compatible client pointed at `https://api.groq.com/openai/v1`. The base URL, the API key (`GROQ_API_KEY`) and every model name come from environment variables. Switching to local Ollama, a paid tier or another provider is then a config change. Groq marks preview models as liable to be withdrawn at short notice, which is another reason the media cache is shipped.
@@ -332,9 +334,9 @@ code/
 ├── llm.py                 # one OpenAI-compatible client: config, caching, retries, rate limits
 ├── context/               # CSV loaders and indexes
 ├── perception/            # builds the image and voice cache
-├── tools/                 # one file per tool
+├── tools/                 # profiles, history, media and safety tools, plus their definitions
 ├── agent/                 # router, critic, ReAct loop
-├── prompts/               # policy.md, types.md, router_system.md, critic_system.md
+├── prompts/               # policy.md, types.md, style_examples.md, image_perception.md, media_question.md, router_system.md, critic_system.md
 └── evaluation/main.py     # scores the blind sample set
 cache/media/               # image and voice analysis, shipped with the code
 cache/llm/  traces/        # generated, git-ignored

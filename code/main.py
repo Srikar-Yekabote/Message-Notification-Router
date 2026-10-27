@@ -5,6 +5,7 @@ Usage (from the repository root):
     python3 code/main.py check                 validate the dataset and print counts
     python3 code/main.py inspect MESSAGE_ID    print the context bundle for one message
     python3 code/main.py perceive              analyse images and voice notes into cache/media/
+    python3 code/main.py tool MESSAGE_ID NAME  run one of the agent's tools ('all' runs every tool)
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from typing import List, Optional
 from context import load_store
 from llm import GroqClient, load_env_file
 from perception import MEDIA_CACHE_DIR, pending_media, perceive_all
+from tools import TOOL_NAMES, ToolContext, render, run_tool
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -29,6 +31,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     perceive = commands.add_parser("perceive", help="analyse images and voice notes into cache/media/ (uses Groq)")
     perceive.add_argument("--force", action="store_true", help="redo items that are already cached")
     perceive.add_argument("--only", nargs="+", metavar="MEDIA_ID", help="limit to these media IDs")
+    tool = commands.add_parser("tool", help="run one of the agent's tools for a message, as the agent would")
+    tool.add_argument("message_id", help="an ID from messages.csv or sample_messages.csv")
+    tool.add_argument("name", choices=TOOL_NAMES + ["all"], help="the tool to run, or 'all' for every tool")
+    tool.add_argument("arguments", nargs="?", default="{}",
+                      help="""the tool's arguments as JSON, e.g. '{"query": "refund", "scope": "all"}'""")
     args = parser.parse_args(argv)
 
     load_env_file()
@@ -37,6 +44,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return check(store)
     if args.command == "perceive":
         return perceive_media(store, args.force, args.only)
+    if args.command == "tool":
+        return run_tools(store, args.message_id, args.name, args.arguments)
     return inspect_message(store, args.message_id, args.history)
 
 
@@ -85,6 +94,24 @@ def perceive_media(store, force: bool, only: Optional[List[str]]) -> int:
         print("failed: " + ", ".join(result["failed"]) + " (rerun to retry just these)")
         return 1
     return 0
+
+
+def run_tools(store, message_id: str, name: str, arguments: str) -> int:
+    if message_id not in store.incoming:
+        print(f"Unknown message ID: {message_id}", file=sys.stderr)
+        return 2
+    if name == "all" and arguments.strip() not in ("", "{}"):
+        print("'all' runs every tool with its default arguments; name one tool to pass arguments.", file=sys.stderr)
+        return 2
+    ctx = ToolContext.for_message(store, message_id, client=GroqClient())
+    failed = False
+    for tool_name in TOOL_NAMES if name == "all" else [name]:
+        result = run_tool(ctx, tool_name, {} if name == "all" else arguments)
+        failed = failed or "error" in result
+        size = len(render(result))
+        print(f"== {tool_name}: {size} characters as the agent sees it (about {size // 4} tokens)")
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 1 if failed else 0
 
 
 def inspect_message(store, message_id: str, history_limit: int) -> int:
