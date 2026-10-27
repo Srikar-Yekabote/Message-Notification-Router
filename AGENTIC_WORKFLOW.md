@@ -3,7 +3,7 @@
 > **Challenge:** HackerRank Orchestrate — Message Notification Router
 > **Output contract:** `message_id,action,message_type,reason,confidence,evidence_message_ids`
 > **Input:** 110 messages in `dataset/messages.csv` · 30 solved examples in `dataset/sample_messages.csv`
-> **Status:** Phases 0–3 are built (prompts, context store, media cache, tools); Phase 4, the router agent, is next. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
+> **Status:** Phases 0–4 are built (prompts, context store, media cache, tools, router agent with output guard); Phase 5, the critic, is next. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
 > **Models:** free, open models on Groq's hosted free tier. The free tier's daily token limit shapes several choices below (§8).
 
 ---
@@ -74,8 +74,8 @@ These facts come from profiling the dataset and should shape the prompts and the
 │ Attach a pointer to the media, not its contents.                  │
 └─────────────────────────────────┬─────────────────────────────────┘
                                   ▼
-┌─ Stage 2 · Router agent  (gpt-oss-120b, at most 5 tool calls) ────┐
-│   think → choose a tool → read the result → think … → stop        │
+┌─ Stage 2 · Router agent  (gpt-oss-120b, at most 3 gather turns) ──┐
+│   think → gather the chosen tools → read results → think … → stop │
 │                                                                   │
 │   inspect_media     user_profile        sender_profile            │
 │   group_context     business_relationship                         │
@@ -135,10 +135,11 @@ Each phase ends with a "done when" check, so you know when to move on.
 
 ### Phase 4 — Router agent
 1. Write the system prompt in this order: role, message types, routing policy, the untrusted-content rule, the evidence rule, reason style, and the JSON output format.
-2. Keep the fixed parts of the prompt (system prompt and tool definitions) first and byte-identical on every call, with the message-specific part after them. Groq caches repeated prefixes automatically for the gpt-oss models, and cached tokens don't count against limits (§8.2).
-3. Run the ReAct loop with a cap of 5 tool calls. The agent stops when it is confident. Easy messages should take 1–2 calls and hard ones up to 5. gpt-oss runs one tool call at a time on Groq.
+2. Keep the fixed parts of the prompt (system prompt and tool definitions) first and byte-identical on every call, with the message-specific part after them. Groq caches repeated prefixes for the gpt-oss models, and cached tokens don't count against limits (§8.2).
+3. Run the ReAct loop through one `gather` tool. gpt-oss on Groq makes one tool call per turn and every turn resends the whole prompt, so `gather` lets the agent request several of the seven tools in one turn. The agent still chooses which facts to fetch, and may call `gather` again for a follow-up. Cap: 3 `gather` turns (up to 6 tool requests each), then the agent must answer. Most messages take one turn.
 4. Use gpt-oss at low reasoning effort first. Its reasoning tokens count as output, so raise the effort only if testing shows a real gain.
-5. **Done when:** 10 blind samples run end to end, every result is valid JSON, and token use per message is within the budget in §8.2.
+5. **Done when:** 10 blind samples run end to end, every result is valid JSON, and token use per message is within the budget in §8.2. Run with `python3 code/main.py route MESSAGE_ID …` (or `--blind`); each message's tool calls, draft, guard notes, model and token use go to `traces/<message_id>.json`.
+6. **Result (first live run):** 10 blind samples, no fallbacks, one `gather` turn each, about 4.5K counted tokens per message (1.3K–9.1K). Two fixes came from the traces: `gather` now ignores arguments a tool does not take (the model filled every field and then spent a second turn retrying), and an answer that gpt-oss sends as a call to a non-existent `json` tool is asked for again as text.
 
 ### Phase 5 — Critic and confidence
 1. Add the critic checks and tie-break (§7.3) and the confidence bands (§7.4).
@@ -244,12 +245,12 @@ The samples never go above 0.91, so keep the ceiling at about 0.92.
 - Never repeat links, codes or injected instructions from the message.
 
 ### 7.6 Example runs
-These show how the agent's path changes with the message. They are not a fixed script.
+These show how the agent's path changes with the message. They are not a fixed script. In practice the agent requests most of these tools together in one `gather` turn.
 
-- **Forwarded "good morning" in a family group** (`forwarded_count` 6): `group_context` → `search_history` (same sender, user dismissed the last two) → **mute/greeting**. 2 tool calls.
-- **"Delivery failed, pay a fee at a link"** from a business: `sender_profile` (unverified, domain differs from official, domain 2 days old, 47 reports this month) → `business_relationship` (no relationship on record) → `safety_scan` (asks for OTP) → **mute/scam**. 3 tool calls.
-- **Voice note in a family group:** `inspect_media` (transcript asks the user to call back urgently) → `sender_profile` (close contact the user always replies to) → **notify/urgent**. 2 tool calls.
-- **@mention in a muted society group:** `group_context` (muted) → `sender_profile` (sender is admin) → `search_history` (user replied to this admin's last alert) → **notify/urgent**. 3 tool calls.
+- **Forwarded "good morning" in a family group** (`forwarded_count` 6): `group_context` → `search_history` (same sender, user dismissed the last two) → **mute/greeting**.
+- **"Delivery failed, pay a fee at a link"** from a business: `sender_profile` (unverified, domain differs from official, domain 2 days old, 47 reports this month) → `business_relationship` (no relationship on record) → `safety_scan` (asks for OTP) → **mute/scam**.
+- **Voice note in a family group:** `inspect_media` (transcript asks the user to call back urgently) → `sender_profile` (close contact the user always replies to) → **notify/urgent**.
+- **@mention in a muted society group:** `group_context` (muted) → `sender_profile` (sender is admin) → `search_history` (user replied to this admin's last alert) → **notify/urgent**.
 
 ---
 
@@ -259,7 +260,7 @@ These show how the agent's path changes with the message. They are not a fixed s
 
 | Job | Model on Groq | Notes |
 |---|---|---|
-| Router agent | `openai/gpt-oss-120b` | Production model. Supports custom tool calling and JSON mode, and caches prompts automatically. Calls tools one at a time (no parallel tool calls). |
+| Router agent | `openai/gpt-oss-120b` | Production model. Supports custom tool calling and JSON mode, and caches prompts. Makes one tool call per turn, which is why the router offers a single `gather` tool that batches the seven fact tools. |
 | Router overflow | `openai/gpt-oss-20b` | Same family, prompts and caching, with its own daily quota. Used only when the 120b quota runs out. Each trace records which model decided. |
 | Critic | `llama-3.3-70b-versatile` | Production model from a different family, with its own quota. Its limits aren't in Groq's public table, so check your account's limits page. `qwen/qwen3.8-27b` is the alternative. |
 | Images | `qwen/qwen3.8-27b` | Preview model that accepts images (up to 3 per request, about 2,048 tokens each) and supports JSON mode. Run once; results are cached and shipped. |
@@ -282,11 +283,12 @@ Groq's published limits for the gpt-oss models are below. Your account's limits 
 
 Limits apply per model across your whole account. Going over returns HTTP 429 with a `retry-after` header. **Tokens per day is the binding limit**, so the design works around it:
 
-- **Prompt caching.** gpt-oss caches repeated prompt prefixes automatically (the cache lasts about 2 hours idle), and cached tokens don't count toward limits. The fixed prefix (policy, types, style examples and tool definitions, about 4.5K tokens) is sent first and identically on every call. Within the ReAct loop the earlier turns become a cached prefix too, so each extra step mostly costs only its new tokens. Groq's docs don't say whether caching applies on the free plan, so confirm it in Phase 4 from the token usage each response reports.
-- **Budget per message.** Aim for about 4K counted tokens for the router (new input plus output, including reasoning) and about 1.5K for the critic. Compact tool output and low reasoning effort keep it there.
+- **Prompt caching.** gpt-oss caches repeated prompt prefixes (the cache lasts about 2 hours idle), and cached tokens don't count toward limits. The fixed prefix (system prompt and the `gather` definition, about 3.4K tokens after Phase 4 trimmed the prompts) is sent first and identically on every call. Measured in Phase 4 on the free plan: the first calls showed no caching at all, then about half of all prompt tokens came from the cache once the prefix was stable. Don't count on it for planning.
+- **Fewer turns matter most.** Every model turn resends the whole prompt, so the router offers one `gather` tool that runs several fact tools per turn. This cut a typical message from 3–4 calls to 2.
+- **Budget per message.** Aim for about 4K counted tokens for the router (new input plus output, including reasoning) and about 1.5K for the critic. Measured in Phase 4: about 4.5K router tokens per message (1.3K–9.1K) over 10 blind samples.
 - **Rough totals (estimates).**
-  - Full run of 110 messages: about 440K router tokens and 165K critic tokens. With 120b and 20b sharing the router work, that's one to two days of free quota. If the critic's daily quota is under 165K, split the critic work between `llama-3.3-70b-versatile` and `qwen/qwen3.8-27b`.
-  - One blind-set run of 25 samples: about 100K router tokens and 40K critic tokens.
+  - Full run of 110 messages: about 500K router tokens (Phase 4 measurement) and 165K critic tokens. With 120b and 20b sharing the router work, that's about two days of free quota. If the critic's daily quota is under 165K, split the critic work between `llama-3.3-70b-versatile` and `qwen/qwen3.8-27b`.
+  - One blind-set run of 25 samples: about 115K router tokens and 40K critic tokens.
   - Media pass: about 50K tokens once.
 - **Pace.** 8K tokens per minute allows only a couple of uncached router requests a minute, so process messages one at a time.
 - **Running out.** Read the rate-limit headers on each response and wait out a 429. When a model's daily quota is spent, move the router to the overflow model, or stop cleanly and resume the next day. Every finished message is cached, so nothing is lost.
@@ -335,7 +337,7 @@ code/
 ├── context/               # CSV loaders and indexes
 ├── perception/            # builds the image and voice cache
 ├── tools/                 # profiles, history, media and safety tools, plus their definitions
-├── agent/                 # router, critic, ReAct loop
+├── agent/                 # router_system prompt assembly, ReAct loop, output guard (critic in Phase 5)
 ├── prompts/               # policy.md, types.md, style_examples.md, image_perception.md, media_question.md, router_system.md, critic_system.md
 └── evaluation/main.py     # scores the blind sample set
 cache/media/               # image and voice analysis, shipped with the code
