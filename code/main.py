@@ -16,7 +16,7 @@ import json
 import sys
 from typing import List, Optional
 
-from agent import QuotaExhausted, Router
+from agent import Critic, QuotaExhausted, Router
 from context import load_store
 from llm import REPO_ROOT, GroqClient, load_env_file
 from perception import MEDIA_CACHE_DIR, pending_media, perceive_all
@@ -41,6 +41,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     route = commands.add_parser("route", help="route messages with the router agent (uses Groq); traces go to traces/")
     route.add_argument("message_ids", nargs="*", metavar="MESSAGE_ID", help="IDs from messages.csv or sample_messages.csv")
     route.add_argument("--blind", action="store_true", help="also route every blind-test sample")
+    route.add_argument("--no-critic", action="store_true", help="skip the critic review (router only)")
     args = parser.parse_args(argv)
 
     load_env_file()
@@ -52,7 +53,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "tool":
         return run_tools(store, args.message_id, args.name, args.arguments)
     if args.command == "route":
-        return route_messages(store, args.message_ids, args.blind)
+        return route_messages(store, args.message_ids, args.blind, critic=not args.no_critic)
     return inspect_message(store, args.message_id, args.history)
 
 
@@ -121,7 +122,7 @@ def run_tools(store, message_id: str, name: str, arguments: str) -> int:
     return 1 if failed else 0
 
 
-def route_messages(store, message_ids: List[str], blind: bool) -> int:
+def route_messages(store, message_ids: List[str], blind: bool, critic: bool = True) -> int:
     if blind:
         split = json.loads((REPO_ROOT / "code" / "evaluation" / "sample_split.json").read_text(encoding="utf-8"))
         message_ids = list(dict.fromkeys(message_ids + split["blind_test"]))
@@ -133,19 +134,27 @@ def route_messages(store, message_ids: List[str], blind: bool) -> int:
     client = GroqClient()
     if not client.api_key:
         print("GROQ_API_KEY is not set, so only decisions already in cache/llm/ can be replayed.", file=sys.stderr)
-    router = Router(store, client)
-    fallbacks, counted = 0, 0
+    router = Router(store, client, critic=Critic(store, client) if critic else None)
+    fallbacks, counted, critic_counted = 0, 0, 0
     for message_id in message_ids:
         try:
             result = router.route(message_id)
         except QuotaExhausted as error:
-            print(f"\nStopped at {message_id}: every router model is rate limited ({error}).", file=sys.stderr)
+            print(f"\nStopped at {message_id}: every model for that role is rate limited ({error}).", file=sys.stderr)
             print("Rerun the same command later; finished messages come from the cache.", file=sys.stderr)
             return 3
         row, trace = result.row, result.trace
         usage = trace["usage"]
         counted += usage["counted_tokens"]
         fallbacks += result.fell_back
+        review = trace.get("critic")
+        critic_note = ""
+        if review:
+            critic_counted += review["usage"]["counted_tokens"]
+            before, after = review["before"], review["after"]
+            change = ("" if (before["action"], before["message_type"]) == (after["action"], after["message_type"])
+                      else f": {before['action']}/{before['message_type']} -> {after['action']}/{after['message_type']}")
+            critic_note = f", critic {review['outcome']}{change}"
         tools = sum(len((s["arguments"] or {}).get("requests", [])) if isinstance(s["arguments"], dict) else 1
                     for s in trace["steps"])
         source = "cached" if usage["live_calls"] == 0 else f"{usage['live_calls']} live call(s)"
@@ -153,10 +162,12 @@ def route_messages(store, message_ids: List[str], blind: bool) -> int:
               f"evidence={row['evidence_message_ids']}")
         print(f"{'':<16} {row['reason']}")
         print(f"{'':<16} [{len(trace['steps'])} gather turn(s), {tools} tool(s), {usage['counted_tokens']:,} tokens, "
-              f"{source}, {', '.join(trace['models']) or 'no model'}]"
+              f"{source}, {', '.join(trace['models']) or 'no model'}{critic_note}]"
               + (f"  FALLBACK: {trace['error']}" if result.fell_back else ""))
-    print(f"\nrouted {len(message_ids)}, fallbacks {fallbacks}, counted tokens {counted:,} "
-          f"(about {counted // max(len(message_ids), 1):,} per message)")
+    per_message = max(len(message_ids), 1)
+    print(f"\nrouted {len(message_ids)}, fallbacks {fallbacks}, router tokens {counted:,} "
+          f"(about {counted // per_message:,} per message)"
+          + (f", critic tokens {critic_counted:,} (about {critic_counted // per_message:,} per message)" if critic else ""))
     return 1 if fallbacks else 0
 
 

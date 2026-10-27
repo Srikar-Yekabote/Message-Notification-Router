@@ -37,6 +37,9 @@ class ScriptedClient:
             raise reply
         return {"choices": [{"message": reply}], "usage": USAGE}
 
+    def cached_chat(self, model, messages, **kwargs):
+        return None
+
 
 def gather_call(*requests, call_id="call_1"):
     arguments = json.dumps({"requests": list(requests)})
@@ -133,6 +136,16 @@ class RouterTest(unittest.TestCase):
         result = self.router(client, fallback_model="backup").route("msg_026")
         self.assertEqual(result.trace["models"], ["backup"])
         self.assertEqual(len(result.trace["model_switches"]), 1)
+
+    def test_after_a_switch_cached_answers_from_the_first_model_are_reused(self):
+        client = ScriptedClient(answer(), rate_limited={"primary"})
+        cached = {"choices": [{"message": answer(action="digest", message_type="promotion")}], "usage": USAGE}
+        client.cached_chat = lambda model, messages, **kwargs: cached if model == "primary" else None
+        router = self.router(client, fallback_model="backup")
+        router.route("msg_026")  # the primary hits its limit here, so the router switches to backup
+        result = router.route("msg_023")
+        self.assertEqual(result.trace["models"], ["primary"])
+        self.assertEqual(result.row["action"], "digest")
 
     def test_rate_limit_on_every_model_stops_the_run(self):
         client = ScriptedClient(rate_limited={"primary", "backup"})

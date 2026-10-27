@@ -3,7 +3,7 @@
 > **Challenge:** HackerRank Orchestrate — Message Notification Router
 > **Output contract:** `message_id,action,message_type,reason,confidence,evidence_message_ids`
 > **Input:** 110 messages in `dataset/messages.csv` · 30 solved examples in `dataset/sample_messages.csv`
-> **Status:** Phases 0–4 are built (prompts, context store, media cache, tools, router agent with output guard); Phase 5, the critic, is next. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
+> **Status:** Phases 0–5 are built (prompts, context store, media cache, tools, router agent, output guard, critic); Phase 6, evaluation, is next. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
 > **Models:** free, open models on Groq's hosted free tier. The free tier's daily token limit shapes several choices below (§8).
 
 ---
@@ -84,7 +84,7 @@ These facts come from profiling the dataset and should shape the prompts and the
 │   → draft {action, message_type, reason, confidence, evidence}    │
 └─────────────────────────────────┬─────────────────────────────────┘
                                   ▼
-┌─ Stage 3 · Critic agent  (llama-3.3-70b-versatile) ───────────────┐
+┌─ Stage 3 · Critic agent  (qwen/qwen3.8-27b) ──────────────────────┐
 │ Sees the draft and a compact summary of the facts gathered.       │
 │ agrees → accept   │   objects → router revises once               │
 │ still disagrees → tie-break (§7.3)                                │
@@ -143,9 +143,10 @@ Each phase ends with a "done when" check, so you know when to move on.
 
 ### Phase 5 — Critic and confidence
 1. Add the critic checks and tie-break (§7.3) and the confidence bands (§7.4).
-2. Run the critic on a different model family (`llama-3.3-70b-versatile`), so it doesn't share the router's blind spots and draws on its own daily quota. Send it the draft plus a compact summary of the facts, not the router's whole transcript.
-3. Record every case where the critic changed a decision, and whether the change was right.
+2. Run the critic on a different model family (`qwen/qwen3.8-27b`; §8.1 says why not `llama-3.3-70b-versatile`), so it doesn't share the router's blind spots and draws on its own daily quota. Send it the draft, a compact digest of the facts (long text clipped, lists cut to 4 items) and the cited evidence messages, not the router's reasoning or whole transcript. The prompt is `code/prompts/critic_system.md`.
+3. Record every case where the critic changed a decision, and whether the change was right. Each trace stores the critic's reviews, the outcome (accepted, revised, tie_break or unavailable) and the row before and after; `python3 code/evaluation/main.py` scores them against the labels.
 4. **Done when:** the critic fixes more wrong decisions than it breaks right ones on the blind set.
+5. **Result (first blind run, 25 samples):** the critic accepted 23 decisions and objected to 2; both revisions fixed the action (`sample_msg_004` digest → notify, `sample_msg_043` digest → mute), and none broke a right one. Action accuracy went from 23/25 to 25/25; type accuracy stayed 21/25. Caveat: the 120b quota ran out partway, so 13 of the 25 router decisions came from `gpt-oss-20b`. The run also showed that after the switch the router re-asked 20b for messages that 120b had already answered; it now reuses the cached 120b answer first.
 
 ### Phase 6 — Evaluate and iterate
 1. Run the blind set and score it (§9).
@@ -230,6 +231,8 @@ If the critic still disagrees after one revision:
 - Otherwise → **digest**, which neither interrupts the user wrongly nor hides the message.
 - In both cases, set the confidence to 0.70 or lower.
 
+After any objection, the final confidence is capped at 0.77 (the conflicting-signals band) even when the critic accepts the revision. If the critic cannot answer (an API error or no valid JSON), the router's decision stands and the trace says so.
+
 ### 7.4 Confidence
 | Band | When |
 |---|---|
@@ -262,7 +265,7 @@ These show how the agent's path changes with the message. They are not a fixed s
 |---|---|---|
 | Router agent | `openai/gpt-oss-120b` | Production model. Supports custom tool calling and JSON mode, and caches prompts. Makes one tool call per turn, which is why the router offers a single `gather` tool that batches the seven fact tools. |
 | Router overflow | `openai/gpt-oss-20b` | Same family, prompts and caching, with its own daily quota. Used only when the 120b quota runs out. Each trace records which model decided. |
-| Critic | `llama-3.3-70b-versatile` | Production model from a different family, with its own quota. Its limits aren't in Groq's public table, so check your account's limits page. `qwen/qwen3.8-27b` is the alternative. |
+| Critic | `qwen/qwen3.8-27b` | A different family from the router, with its own quota (8K tokens and 1,000 output tokens per minute on this account). `llama-3.3-70b-versatile` was the first choice but returns "does not exist or you do not have access" on this account (checked October 2026), and the only other text models are gpt-oss variants and a small Arabic model. No fallback by default, since a gpt-oss critic would share the router's blind spots; `CRITIC_FALLBACK_MODEL` can add one. |
 | Images | `qwen/qwen3.8-27b` | Preview model that accepts images (up to 3 per request, about 2,048 tokens each) and supports JSON mode. Run once; results are cached and shipped. |
 | Voice notes | `whisper-large-v3` | Speech-to-text. The 13 short clips fit easily within the audio limits. |
 | Injection signal (optional) | `meta-llama/llama-prompt-guard-2-86m` | Small preview classifier that scores text for prompt-injection attempts. Off unless `PROMPT_GUARD_MODEL` is set; then it feeds `safety_scan` as one more fact. In testing it scored the "ignore all previous routing rules" sample 0.998 but fake "router metadata" text only 0.001, so `safety_scan`'s phrase check remains the main signal. |
@@ -287,7 +290,9 @@ Limits apply per model across your whole account. Going over returns HTTP 429 wi
 - **Fewer turns matter most.** Every model turn resends the whole prompt, so the router offers one `gather` tool that runs several fact tools per turn. This cut a typical message from 3–4 calls to 2.
 - **Budget per message.** Aim for about 4K counted tokens for the router (new input plus output, including reasoning) and about 1.5K for the critic. Measured in Phase 4: about 4.5K router tokens per message (1.3K–9.1K) over 10 blind samples.
 - **Rough totals (estimates).**
-  - Full run of 110 messages: about 500K router tokens (Phase 4 measurement) and 165K critic tokens. With 120b and 20b sharing the router work, that's about two days of free quota. If the critic's daily quota is under 165K, split the critic work between `llama-3.3-70b-versatile` and `qwen/qwen3.8-27b`.
+  - Full run of 110 messages: about 500K–950K router tokens and about 300K critic tokens (Phase 5 measured about 2.7K critic tokens per message). With 120b and 20b sharing the router work, plan on two to four days of free quota.
+  - Measured cost depends on caching: about 4.5K router tokens per message with a warm cache (Phase 4) and about 7.6K with a cold one (Phase 5's blind run, 16% of prompt tokens cached).
+  - Groq's daily limits behave like a rolling 24-hour window: on the second day, 120b ran out after about a dozen messages because the previous day's runs still counted.
   - One blind-set run of 25 samples: about 115K router tokens and 40K critic tokens.
   - Media pass: about 50K tokens once.
 - **Pace.** 8K tokens per minute allows only a couple of uncached router requests a minute, so process messages one at a time.
@@ -339,7 +344,7 @@ code/
 ├── tools/                 # profiles, history, media and safety tools, plus their definitions
 ├── agent/                 # router_system prompt assembly, ReAct loop, output guard (critic in Phase 5)
 ├── prompts/               # policy.md, types.md, style_examples.md, image_perception.md, media_question.md, router_system.md, critic_system.md
-└── evaluation/main.py     # scores the blind sample set
+└── evaluation/main.py     # scores routed samples from traces/ (evaluation only; labels never reach the agents)
 cache/media/               # image and voice analysis, shipped with the code
 cache/llm/  traces/        # generated, git-ignored
 README.md  .env.example  requirements.txt
