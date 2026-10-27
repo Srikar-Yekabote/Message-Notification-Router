@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_007",
+  "media_type": "voice",
+  "file": "media/audio/vn_007.mp3",
+  "file_sha256": "0aeb6739be7c025ea75eb19b27e935b57eaa52ffc42f9b8924329939b2bd1dcd",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "cards in partnership with HDFC Bank and you're among the first to be invited. These cards offer up to 10% cash back on every Swiggy, Food and Instamart order. These cards also offer up to 24% off on travel. The best part, we are offering them to you free for lifetime to be the first to own the new Swiggy card. Press 1 now.",
+    "language": "English",
+    "duration_seconds": 28.3,
+    "tone": null
+  }
+}

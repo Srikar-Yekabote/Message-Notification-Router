@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_014",
+  "media_type": "voice",
+  "file": "media/audio/vn_014.mp3",
+  "file_sha256": "2c36cd474054f3cd59ad0f1a8a27316f4c0eb13857b7bd03fcd5c8c8ed3d667f",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "hospital and residential apartments. 1, 2, 3 and 4 BHK apartments starting 1 crore to 4 crore. Expression of interest has just started. Dial 1 if you're interested to know more, dial 2 to submit your EOI, dial 5 to repeat and dial 8 to stop receiving message and to unsubscribe. Thank you. Thank you. dial 5 to repeat and dial 8 to stop receiving message and to unsubscribe.",
+    "language": "English",
+    "duration_seconds": 110.0,
+    "tone": null
+  }
+}

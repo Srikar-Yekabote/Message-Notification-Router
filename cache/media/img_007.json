@@ -1,0 +1,23 @@
+{
+  "media_id": "img_007",
+  "media_type": "image",
+  "file": "media/images/img_007.jpg",
+  "file_sha256": "f91e93fb54fe983eb2446d7ac13083286b53c5481e001492ce17113a3fe435d1",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "photo",
+    "ocr_text": "JioMart",
+    "summary": "A photo showing a brown paper shopping bag with the JioMart logo printed on it, sitting on a white table near a window.",
+    "brands": [
+      "JioMart"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [],
+    "language": "en"
+  }
+}

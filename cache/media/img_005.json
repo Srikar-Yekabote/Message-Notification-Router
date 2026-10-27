@@ -1,0 +1,23 @@
+{
+  "media_id": "img_005",
+  "media_type": "image",
+  "file": "media/images/img_005.jpg",
+  "file_sha256": "a3877e0e53d17fca1cd0fdefb2db9db15c4a704b0f7f7899739d592d2d9b9a77",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "Le Cirque Signature\nAn ultra luxury French and Italian dining room inside a palace style setting, offering elite multi course degustation menus customizable by the chef\n₹7,000 for two people\nThe Leela Palace, Old Airport Road",
+    "summary": "A promotional image for a dining experience called 'Le Cirque Signature' at The Leela Palace, describing it as an ultra-luxury French and Italian dining room with a price of ₹7,000 for two people.",
+    "brands": [
+      "The Leela Palace"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [],
+    "language": "en"
+  }
+}

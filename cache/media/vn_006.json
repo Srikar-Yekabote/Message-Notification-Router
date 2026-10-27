@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_006",
+  "media_type": "voice",
+  "file": "media/audio/vn_006.mp3",
+  "file_sha256": "fc5858c366a651bf0c03c244d5c84961ea9b1bf80cc6b9a5af598d7b794e0552",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "Can you check the onboarding doc tomorrow morning? Nothing urgent. I just want your comments before lunch.",
+    "language": "English",
+    "duration_seconds": 7.21,
+    "tone": null
+  }
+}

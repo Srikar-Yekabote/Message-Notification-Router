@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_009",
+  "media_type": "voice",
+  "file": "media/audio/vn_009.mp3",
+  "file_sha256": "4e443b0be37422d9d49ec01d32ada9f5952d5878f79b8090965bec915b62eb27",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "Your airport pickup for tomorrow has moved to 6.15 am. The driver and hotel booking remain the same.",
+    "language": "English",
+    "duration_seconds": 7.05,
+    "tone": null
+  }
+}

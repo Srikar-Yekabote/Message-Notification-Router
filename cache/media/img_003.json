@@ -1,0 +1,26 @@
+{
+  "media_id": "img_003",
+  "media_type": "image",
+  "file": "media/images/img_003.jpg",
+  "file_sha256": "005131c595936d1143622a139ee3f7ecb48aa10ab52ed1d65c534fdb68ed3170",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "Happy Holidayers\nTRAVEL. EXPLORE. ENJOY.\nLADAKH\nTOUR PACKAGES\nEXPERIENCE THE MAGIC OF LADAKH\nUP TO 40% OFF\nSIGHTSEEING\nTRANSFERS\nMEALS\nSTAY\nBOOK NOW\n+91 98056 07657\n20K+ Travelers\n10K+ Hotels\n5K+ Tours\n06+ Offices\nwww.happyholidayers.com",
+    "summary": "A promotional advertisement for Happy Holidayers offering tour packages to Ladakh with a discount of up to 40%. The poster features a scenic background of a lake and mountains and includes a call to action to book now via a provided phone number or website.",
+    "brands": [
+      "Happy Holidayers"
+    ],
+    "urls": [
+      "www.happyholidayers.com"
+    ],
+    "qr_present": false,
+    "asks_for": [
+      "call",
+      "visit_link"
+    ],
+    "deadlines": [],
+    "language": "en"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "media_id": "img_026",
+  "media_type": "image",
+  "file": "media/images/img_026.jpg",
+  "file_sha256": "cba968fe7b7641e37c04b27b29a141103311ef1568f3f255f9a610a000dc48c3",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "SECURE BANKING\nHDFC BANK\nThere are more than\n10 ways\nyou can get bowled by scammers\nThere is one way to save it\n#MoonBandRakho",
+    "summary": "A promotional poster from HDFC Bank featuring a cricket theme that warns about scams and promotes the hashtag #MoonBandRakho.",
+    "brands": [
+      "HDFC BANK"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [],
+    "language": "en"
+  }
+}

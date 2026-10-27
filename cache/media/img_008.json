@@ -1,0 +1,21 @@
+{
+  "media_id": "img_008",
+  "media_type": "image",
+  "file": "media/images/img_008.jpg",
+  "file_sha256": "aa28393879ec900dd98431fa50fa4d11f969d5b40a030d25fdba541a82f0648a",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "photo",
+    "ocr_text": "",
+    "summary": "A photograph showing a clothing rack filled with various garments, including dresses and tops in different colors and patterns. The rack is positioned against a light pink wall with decorative items like a vase and a handbag on shelves above.",
+    "brands": [],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [],
+    "language": ""
+  }
+}

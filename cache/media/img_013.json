@@ -1,0 +1,29 @@
+{
+  "media_id": "img_013",
+  "media_type": "image",
+  "file": "media/images/img_013.jpg",
+  "file_sha256": "0b8a4b7538d406953344702ae1056fb2a5099d1059ed25cbc8a7f1082c64ab4b",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "SAVE THE DATE!\nWe are gathering for\nIIT BOMBAY ALUMNI\nCONNECT\nin\nBangalore\n15th November, 2025\n11:30 am onwards\nSterlings Mac Hotel, 134,\nHAL Old Airport Road, Kodihalli\nIIBA-aa\nBENGALURU CHAPTER\nMumbai\n29th November, 2025\n06:00 pm onwards\nThe Orchid Hotel\nMumbai, Vile Parle\nIIBA-aa\nMUMBAI CHAPTER\nRegister from the\ngiven link in caption",
+    "summary": "An event poster announcing 'IIT Bombay Alumni Connect' gatherings in Bangalore and Mumbai in November 2025, asking viewers to register via a link in the caption.",
+    "brands": [
+      "IIT Bombay",
+      "IIBA-aa",
+      "Sterlings Mac Hotel",
+      "The Orchid Hotel"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "visit_link"
+    ],
+    "deadlines": [
+      "15th November, 2025",
+      "29th November, 2025"
+    ],
+    "language": "en"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_003",
+  "media_type": "voice",
+  "file": "media/audio/vn_003.mp3",
+  "file_sha256": "8172096bd41fe596e6a429c36b8c5ef1c9ff67221ce1ba00949ef06e6c02e204",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "Okay, I understand. I'll arrange a call back from our Senior Admission Counselor who can help you out. Thank you. Sorry, I'm not able to hear you. Are we still online? It seems like you're busy at the moment. I'll call you back at another time. Good day.",
+    "language": "English",
+    "duration_seconds": 41.08,
+    "tone": null
+  }
+}

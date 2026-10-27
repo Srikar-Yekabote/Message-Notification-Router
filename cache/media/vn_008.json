@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_008",
+  "media_type": "voice",
+  "file": "media/audio/vn_008.mp3",
+  "file_sha256": "d548d65902b47b816a3be749ec2d0dd63f85e284197790cd974519d30780a864",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "Your bank account will be blocked today. Share the OTP you received so we can complete verification immediately.",
+    "language": "English",
+    "duration_seconds": 5.46,
+    "tone": null
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "media_id": "img_014",
+  "media_type": "image",
+  "file": "media/images/img_014.jpg",
+  "file_sha256": "0a947c80660e92ae5886ac03401511ee040633756549b40df4c9fb5acd75c01e",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "AllCloud\naws\nWebinar\nGaining a Competitive\nEdge with GenAI on AWS\nWednesday | February 28 | 11:00\nREGISTER NOW\nJonathan Chemama\nAI Tech Lead, AllCloud\nSharon Horaz\nSr. Sales Specialist\nAnalytics/ML, AWS",
+    "summary": "A promotional poster for a webinar titled 'Gaining a Competitive Edge with GenAI on AWS' scheduled for Wednesday, February 28 at 11:00. It features headshots of the speakers, Jonathan Chemama and Sharon Horaz, and includes a 'REGISTER NOW' button.",
+    "brands": [
+      "AllCloud",
+      "aws"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [
+      "Wednesday | February 28 | 11:00"
+    ],
+    "language": "en"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "media_id": "img_025",
+  "media_type": "image",
+  "file": "media/images/img_025.jpg",
+  "file_sha256": "1a8b7ee07c5d7b6fc0fa3e63dfd1cc0b5fe5988edabacf59a04a50c52079f2c5",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "poster",
+    "ocr_text": "Ingoude Company\nLAND PLOT\nFOR SALE\nSecure your dream investment! Prime land plots available\nstrategic location\nhigh value\nfuture growth\nContact Us\n+123-456-7890\nwww.reallygreatsite.com",
+    "summary": "A promotional poster for Ingoude Company advertising land plots for sale, highlighting features like strategic location and future growth. It includes a 'Contact Us' button, a phone number, and a website URL.",
+    "brands": [
+      "Ingoude Company"
+    ],
+    "urls": [
+      "www.reallygreatsite.com"
+    ],
+    "qr_present": false,
+    "asks_for": [
+      "call",
+      "visit_link"
+    ],
+    "deadlines": [],
+    "language": "en"
+  }
+}

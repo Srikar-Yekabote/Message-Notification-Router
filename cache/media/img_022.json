@@ -1,0 +1,23 @@
+{
+  "media_id": "img_022",
+  "media_type": "image",
+  "file": "media/images/img_022.jpg",
+  "file_sha256": "936324a2c7c1dd9c16eac77c595755086014e61590c2ce44d8f917dfeb05b1f2",
+  "model": "qwen/qwen3.8-27b",
+  "prompt_version": "93bce9b172aa",
+  "analysis": {
+    "kind": "document",
+    "ocr_text": "Sai Ram Clinic\nDr. Sachin Patil\nCONSULTANT FAMILY PHYSICIAN\nMob.: 9008331474\nTiming: Mon to sat\n05-30 p.m. to 09-00 p.m.\nDate: 29/05/25\nName: Mr. Aman\nAge: 19 yrs Sex: M\nRx\nClo Cold T. 1 tablet 1 time\nB A C x 1 day\nB.P.: 120/70\nHR: 116/min\nSPO2: 98%\nTemp: 102.2 F\nWt: Dehydrated\n- T. Opor-C 200mg 1-0-1 (6)\n- T. Atroscop 1-1-1 (8)\n- T. Breezy 0-1-0 (5)\n- T. Supren-D 40mg 1-0-1 (10)\nFor Medicine:\nFREE HOME DELIVERY\nNo.36/37, 2nd floor, 1st main,\nBhagya Nagar, Kengeri, Bengaluru-59\nMob: 782936588",
+    "summary": "A medical prescription from Sai Ram Clinic for a patient named Mr. Aman, listing vital signs and a list of prescribed medications with dosages.",
+    "brands": [
+      "Sai Ram Clinic"
+    ],
+    "urls": [],
+    "qr_present": false,
+    "asks_for": [
+      "none"
+    ],
+    "deadlines": [],
+    "language": "en"
+  }
+}

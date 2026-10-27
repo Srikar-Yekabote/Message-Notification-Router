@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_001",
+  "media_type": "voice",
+  "file": "media/audio/vn_001.mp3",
+  "file_sha256": "bf348ca42cb5c721366ea1de6fa89bb703f0dd2510a0dabd20de12e6a2893d73",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "Had dinner, call went free, nothing urgent.",
+    "language": "English",
+    "duration_seconds": 3.58,
+    "tone": null
+  }
+}

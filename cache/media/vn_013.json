@@ -1,0 +1,14 @@
+{
+  "media_id": "vn_013",
+  "media_type": "voice",
+  "file": "media/audio/vn_013.mp3",
+  "file_sha256": "48738e3aa4c94ecb15dce6975034617edcf9c8f176da8d73cbc349718285c992",
+  "model": "whisper-large-v3",
+  "prompt_version": "1a0056cee52b",
+  "analysis": {
+    "transcript": "The stock is moving fast, enter before the market closes. The target is for tomorrow, don't miss this chance.",
+    "language": "English",
+    "duration_seconds": 9.85,
+    "tone": null
+  }
+}
