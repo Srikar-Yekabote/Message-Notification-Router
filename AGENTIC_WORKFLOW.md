@@ -3,7 +3,7 @@
 > **Challenge:** HackerRank Orchestrate — Message Notification Router
 > **Output contract:** `message_id,action,message_type,reason,confidence,evidence_message_ids`
 > **Input:** 110 messages in `dataset/messages.csv` · 30 solved examples in `dataset/sample_messages.csv`
-> **Status:** Phases 0–5 are built (prompts, context store, media cache, tools, router agent, output guard, critic); Phase 6, evaluation, is next. This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
+> **Status:** Phases 0–5 are built (prompts, context store, media cache, tools, router agent, output guard, critic); Phase 6, evaluation, is in progress (scorer built, two blind runs recorded). This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
 > **Models:** free, open models on Groq's hosted free tier. The free tier's daily token limit shapes several choices below (§8).
 
 ---
@@ -153,6 +153,20 @@ Each phase ends with a "done when" check, so you know when to move on.
 2. Sort errors into buckets, fix the biggest bucket by changing **one** thing (policy wording, a tool's output or a critic check), and re-run.
 3. Budget for the free tier: one blind-set run costs roughly 100K router tokens and 40K critic tokens (§8.2), so plan for one or two runs per day. Unchanged messages are served from the response cache and cost nothing.
 4. **Done when:** blind accuracy stops improving and no label is hardcoded anywhere.
+5. **Tooling:** `python3 code/evaluation/main.py` scores the traces of the latest blind run on every §9 metric, sorts problem rows into error buckets and shows what the critic changed; `--record "what changed"` appends the scores, the bucket counts and short hashes of the prompt files to `code/evaluation/runs.jsonl`.
+6. **Runs so far** (25 blind samples each):
+
+   | Run | Change | Action | Type | Evidence rows matched | Evidence P / R | Reason F1 |
+   |---|---|---|---|---|---|---|
+   | Baseline | Phase 5 system (13 router decisions from gpt-oss-20b) | 25/25 | 21/25 | 14/25 | 0.38 / 0.52 | 0.22 |
+   | 1 | `search_history` ranks the whole history by weighted similarity to the message | 24/25 | 21/25 | 10/25 | 0.31 / 0.36 | 0.21 |
+
+   Run 1 was reverted. The agent kept writing its own keyword queries in a narrow scope, so the new default was barely used; the change fixed no evidence miss and lost four hits. Its patch is kept outside the repo in case it is wanted later.
+7. **What the runs show:**
+   - **Evidence** is the biggest bucket but mostly a selection question, not retrieval: in 9 of 14 misses in run 1 the labelled message was shown to the agent, which cited a different one, usually an identical copy of the same message or a more recent message from the same sender. Matching which copy a label picks would mean fitting the dataset, not improving routing.
+   - **Type confusion** is the most stable bucket (the same 3–4 rows in both runs): `personal` vs `unknown` for a first-time sender, `scam` vs `spam` for risky bait that asks for nothing, and `event` vs `business_update` or `urgent` for same-day changes.
+   - **Action accuracy** is 24–25/25, so it has little room left on this set.
+   - Run-to-run noise is real: one row's action flipped between runs when only the search ranking changed.
 
 ### Phase 7 — Full run and packaging
 1. Run all 110 messages and write `dataset/output.csv` plus one trace file per message. The run is resumable: every finished message is cached, so if a daily quota runs out, the next run continues where it stopped. Expect the full run to need one to two days of free quota.
@@ -321,7 +335,7 @@ Limits apply per model across your whole account. Going over returns HTTP 429 wi
    - reason similarity (plain text overlap first; an LLM judge only if spare quota allows)
    - calibration: high-confidence rows should be right more often than low-confidence ones
 3. **Error buckets:** safety, personalization, urgency, media, evidence, type confusion.
-4. **One change per run,** with each run's scores recorded in an evaluation log.
+4. **One change per run,** with each run's scores recorded in an evaluation log (`code/evaluation/runs.jsonl`, written by `python3 code/evaluation/main.py --record "…"`).
 5. **Watch list:**
    - `044` vs `045` (personalization)
    - `053` (injection)
