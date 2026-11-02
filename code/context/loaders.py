@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -43,6 +43,7 @@ class Dataset:
     daily_load: List[DailyLoad]
     images: Dict[str, Path]
     voice_notes: Dict[str, Path]
+    message_ids: List[str] = field(default_factory=list)  # messages.csv only, in file order: the rows to predict
 
 
 def load_dataset(root: Optional[Path] = None) -> Dataset:
@@ -53,8 +54,8 @@ def load_dataset(root: Optional[Path] = None) -> Dataset:
         _message(r, reaction=reactions.get((r["user_id"], r["message_id"])))
         for r in _rows(root, "message_history")
     ]
-    incoming = [_message(r) for r in _rows(root, "messages")]
-    incoming += [_message(r) for r in _rows(root, "sample_messages")]
+    to_predict = [_message(r) for r in _rows(root, "messages")]
+    incoming = to_predict + [_message(r) for r in _rows(root, "sample_messages")]
     return Dataset(
         root=root,
         users=[_user(r) for r in _rows(root, "users")],
@@ -67,6 +68,7 @@ def load_dataset(root: Optional[Path] = None) -> Dataset:
         daily_load=[_daily(r) for r in _rows(root, "daily_notification_summary")],
         images={r["image_id"]: root / r["file_path"] for r in _rows(root, "images")},
         voice_notes={r["voice_note_id"]: root / r["file_path"] for r in _rows(root, "voice_notes")},
+        message_ids=[m.message_id for m in to_predict],
     )
 
 

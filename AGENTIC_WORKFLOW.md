@@ -173,9 +173,9 @@ Each phase ends with a "done when" check, so you know when to move on.
    - Run-to-run noise is real: one row's action flipped between runs when only the search ranking changed.
 
 ### Phase 7 — Full run and packaging
-1. Run all 110 messages and write `dataset/output.csv` plus one trace file per message. The run is resumable: every finished message is cached, so if a daily quota runs out, the next run continues where it stopped. Expect the full run to need one to two days of free quota.
-2. Run the submission checklist (§12).
-3. Write the README (setup, getting a free Groq API key, run command), add `.env.example`, zip the code with the media cache, and keep `log.txt` for submission.
+1. Run all 110 messages and write `dataset/output.csv` plus one trace file per message: `python3 code/main.py run`. The run is resumable: every finished message is cached, so if a daily quota runs out, the next run continues where it stopped. `output.csv` is written only once every message has a decision, in the row order of the blank template. Expect the full run to need several days of free quota (§8.2).
+2. Run the submission checklist (§12). `python3 code/main.py check-output` checks the file part automatically: columns, one row per message, allowed values, confidence range, and that every evidence ID is an earlier message in that user's history.
+3. Write the README (setup, getting a free Groq API key, run command), add `.env.example`, zip the code with the media cache, and keep `log.txt` for submission. The README is `code/README.md`; the repository's root `README.md` is the organisers' challenge brief and stays as it is. `python3 code/main.py package` builds `code.zip` with the code, prompts, both caches, `.env.example`, `requirements.txt` and this document. It never includes `.env`, `traces/` or the dataset, and it refuses to build if any packaged file looks like it holds an API key. Shipping `cache/llm/` lets anyone replay the submitted run exactly without a key.
 
 ---
 
@@ -360,12 +360,14 @@ code/
 ├── context/               # CSV loaders and indexes
 ├── perception/            # builds the image and voice cache
 ├── tools/                 # profiles, history, media and safety tools, plus their definitions
-├── agent/                 # router_system prompt assembly, ReAct loop, output guard (critic in Phase 5)
+├── agent/                 # prompt assembly, ReAct loop, critic, output guard, output.csv writer and checker
 ├── prompts/               # policy.md, types.md, style_examples.md, image_perception.md, media_question.md, router_system.md, critic_system.md
-└── evaluation/main.py     # scores routed samples from traces/ (evaluation only; labels never reach the agents)
+├── evaluation/main.py     # scores routed samples from traces/ (evaluation only; labels never reach the agents)
+├── bundle.py              # builds code.zip
+└── README.md              # setup and run instructions for the submission
 cache/media/               # image and voice analysis, shipped with the code
-cache/llm/  traces/        # generated, git-ignored
-README.md  .env.example  requirements.txt
+cache/llm/  traces/        # generated, git-ignored (cache/llm/ is shipped in code.zip)
+.env.example  requirements.txt
 ```
 
 ---
@@ -390,9 +392,9 @@ README.md  .env.example  requirements.txt
 
 ## 12. Submission checklist
 
-- [ ] `dataset/output.csv` has exactly 110 rows, one per `message_id` in `dataset/messages.csv`.
+- [ ] `dataset/output.csv` has exactly 110 rows, one per `message_id` in `dataset/messages.csv`. (`python3 code/main.py check-output` checks this item and the next three.)
 - [ ] Columns are exactly `message_id,action,message_type,reason,confidence,evidence_message_ids`, in that order.
 - [ ] `action` and `message_type` use only the allowed values; `confidence` is between 0 and 1.
 - [ ] `evidence_message_ids` is `none` or real history IDs separated by `;`.
-- [ ] `code.zip` contains the code, prompts, the media cache, `.env.example`, and a README that explains getting a free Groq API key, setting `GROQ_API_KEY` and running the system. It contains no secrets.
+- [ ] `code.zip` contains the code, prompts, the media cache, `.env.example`, and a README that explains getting a free Groq API key, setting `GROQ_API_KEY` and running the system. It contains no secrets. (`python3 code/main.py package` builds it and checks for keys.)
 - [ ] `$HOME/hackerrank_orchestrate_august26/log.txt` is ready to upload as the chat transcript.

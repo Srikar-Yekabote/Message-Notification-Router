@@ -7,6 +7,9 @@ Usage (from the repository root):
     python3 code/main.py perceive              analyse images and voice notes into cache/media/
     python3 code/main.py tool MESSAGE_ID NAME  run one of the agent's tools ('all' runs every tool)
     python3 code/main.py route MESSAGE_ID ...  route messages with the router agent (--blind: the blind samples)
+    python3 code/main.py run                   route every message in messages.csv and write dataset/output.csv
+    python3 code/main.py check-output          check dataset/output.csv against the submission contract
+    python3 code/main.py package               build code.zip for submission
 """
 
 from __future__ import annotations
@@ -14,9 +17,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
+from pathlib import Path
 from typing import List, Optional
 
 from agent import Critic, QuotaExhausted, Router
+from agent.output import check_output, output_path, row_order, write_output
+from bundle import SecretFound, build_package
 from context import load_store
 from llm import REPO_ROOT, GroqClient, load_env_file
 from perception import MEDIA_CACHE_DIR, pending_media, perceive_all
@@ -42,8 +49,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     route.add_argument("message_ids", nargs="*", metavar="MESSAGE_ID", help="IDs from messages.csv or sample_messages.csv")
     route.add_argument("--blind", action="store_true", help="also route every blind-test sample")
     route.add_argument("--no-critic", action="store_true", help="skip the critic review (router only)")
+    run = commands.add_parser("run", help="route every message in messages.csv and write dataset/output.csv (uses Groq)")
+    run.add_argument("--no-critic", action="store_true", help="skip the critic review (router only)")
+    check_out = commands.add_parser("check-output", help="check an output file against the submission contract")
+    check_out.add_argument("path", nargs="?", help="default: dataset/output.csv")
+    package = commands.add_parser("package", help="build code.zip for submission (no secrets, no dataset)")
+    package.add_argument("--without-llm-cache", action="store_true", help="leave out cache/llm/ (the zip is smaller, "
+                         "but reproducing the run then needs an API key)")
     args = parser.parse_args(argv)
 
+    if args.command == "package":
+        return package_code(not args.without_llm_cache)
     load_env_file()
     store = load_store()
     if args.command == "check":
@@ -54,6 +70,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return run_tools(store, args.message_id, args.name, args.arguments)
     if args.command == "route":
         return route_messages(store, args.message_ids, args.blind, critic=not args.no_critic)
+    if args.command == "run":
+        return run_all(store, critic=not args.no_critic)
+    if args.command == "check-output":
+        return check_output_file(store, Path(args.path) if args.path else output_path(store))
     return inspect_message(store, args.message_id, args.history)
 
 
@@ -169,6 +189,69 @@ def route_messages(store, message_ids: List[str], blind: bool, critic: bool = Tr
           f"(about {counted // per_message:,} per message)"
           + (f", critic tokens {critic_counted:,} (about {critic_counted // per_message:,} per message)" if critic else ""))
     return 1 if fallbacks else 0
+
+
+def run_all(store, critic: bool = True) -> int:
+    """Route every message to predict, then write and check output.csv. Resumable: finished work is cached."""
+    path = output_path(store)
+    order = row_order(store, path)
+    client = GroqClient()
+    if not client.api_key:
+        print("GROQ_API_KEY is not set, so only decisions already in cache/llm/ can be replayed.", file=sys.stderr)
+    router = Router(store, client, critic=Critic(store, client) if critic else None)
+    rows, fallbacks, models, tokens = {}, [], Counter(), Counter()
+    for number, message_id in enumerate(order, start=1):
+        try:
+            result = router.route(message_id)
+        except QuotaExhausted as error:
+            print(f"\nStopped at {message_id} after {number - 1} of {len(order)} messages: every model for that role "
+                  f"is rate limited ({str(error)[:160]}).", file=sys.stderr)
+            print("output.csv was not written. Rerun the same command later; finished messages come from the cache.",
+                  file=sys.stderr)
+            return 3
+        row, trace = result.row, result.trace
+        rows[message_id] = row
+        if result.fell_back:
+            fallbacks.append(message_id)
+        models[trace["models"][-1] if trace["models"] else "none"] += 1
+        tokens["router"] += trace["usage"]["counted_tokens"]
+        tokens["critic"] += (trace.get("critic") or {}).get("usage", {}).get("counted_tokens", 0)
+        print(f"[{number:>3}/{len(order)}] {message_id:<9} {row['action']:<7} {row['message_type']:<16} "
+              f"{row['confidence']}" + ("  FALLBACK" if result.fell_back else ""))
+
+    write_output(rows, order, path)
+    print(f"\nwrote {len(rows)} rows to {path}")
+    print("  actions: " + ", ".join(f"{k} {v}" for k, v in Counter(r["action"] for r in rows.values()).most_common()))
+    print("  types:   " + ", ".join(f"{k} {v}" for k, v in Counter(r["message_type"] for r in rows.values()).most_common()))
+    print("  decided by: " + ", ".join(f"{k} {v}" for k, v in models.most_common()))
+    print(f"  tokens counted: router {tokens['router']:,}, critic {tokens['critic']:,}")
+    if fallbacks:
+        print(f"  fallback rows ({len(fallbacks)}): {', '.join(fallbacks)}; rerun to retry them")
+    return check_output_file(store, path) or (1 if fallbacks else 0)
+
+
+def package_code(include_llm_cache: bool) -> int:
+    try:
+        path, count, size = build_package(include_llm_cache=include_llm_cache)
+    except SecretFound as error:
+        print(f"Not packaged: {error}", file=sys.stderr)
+        return 1
+    print(f"wrote {path} ({count} files, {size / 1_000_000:.1f} MB)")
+    return 0
+
+
+def check_output_file(store, path: Path) -> int:
+    if not path.exists():
+        print(f"{path} does not exist. Write it with: python3 code/main.py run", file=sys.stderr)
+        return 2
+    problems = check_output(path, store)
+    if problems:
+        print(f"{path}: {len(problems)} problem(s)")
+        for problem in problems[:30]:
+            print(f"  - {problem}")
+        return 1
+    print(f"{path}: OK ({len(store.data.message_ids)} rows, columns, allowed values, confidence and evidence all valid)")
+    return 0
 
 
 def inspect_message(store, message_id: str, history_limit: int) -> int:
