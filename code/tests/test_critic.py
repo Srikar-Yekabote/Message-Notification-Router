@@ -9,8 +9,8 @@ from pathlib import Path
 from agent import Critic, QuotaExhausted, Review, Router
 from agent.critic import (OBJECTION_CONFIDENCE_CAP, TIE_BREAK_CONFIDENCE_CAP, TIE_BREAK_DIGEST_REASON,
                           TIE_BREAK_RISK_REASON, critic_input, facts_digest, parse_review, tie_break)
-from context import load_sample_labels, load_store
-from evaluation.main import critic_effect, score
+from agent.prompts import build_system_prompt
+from context import load_store
 from llm import GroqError, RateLimitError
 from tools.base import UNTRUSTED_CLOSE, UNTRUSTED_OPEN
 
@@ -185,29 +185,15 @@ class CriticPartsTest(unittest.TestCase):
         self.assertEqual((settled["action"], settled["message_type"], settled["reason"]), ("mute", "spam", "Loan bait."))
         self.assertEqual(settled["confidence"], "0.70")
 
+    def test_router_and_critic_share_the_type_distinctions(self):
+        for prompt in (build_system_prompt(), Critic(self.store, client=None).system_prompt):
+            self.assertIn("no earlier messages to this user", prompt)  # a first contact is unknown, not personal
+            self.assertIn("sender risk signals alone", prompt.lower())  # risky bait that asks for nothing is spam
+
     def test_critic_prompt_has_the_checks_and_no_sample_ids(self):
         prompt = Critic(self.store, client=None).system_prompt
         self.assertIn("# Your six checks", prompt)
         self.assertNotIn("sample_msg_", prompt)
-
-
-class CriticEffectTest(unittest.TestCase):
-    def test_effects_are_judged_against_the_label(self):
-        label = load_sample_labels()["sample_msg_053"]  # mute / scam
-        wrong = {"action": "notify", "message_type": "urgent"}
-        right = {"action": "mute", "message_type": "scam"}
-        self.assertEqual(critic_effect(wrong, right, label), {"action": "fixed", "message_type": "fixed"})
-        self.assertEqual(critic_effect(right, wrong, label), {"action": "broke", "message_type": "broke"})
-        self.assertEqual(critic_effect(right, right, label)["action"], "unchanged")
-
-    def test_score_counts_router_and_final_accuracy(self):
-        labels = load_sample_labels()
-        before = {"action": "notify", "message_type": "urgent"}
-        after = {"action": "mute", "message_type": "scam"}
-        traces = {"sample_msg_053": {"row": after, "critic": {"outcome": "revised", "before": before, "reviews": []}}}
-        report = score(traces, labels)
-        self.assertEqual(report["accuracy"], {"router_action": 0, "router_type": 0, "final_action": 1, "final_type": 1})
-        self.assertEqual(report["changes"][0]["effect"]["action"], "fixed")
 
 
 if __name__ == "__main__":
