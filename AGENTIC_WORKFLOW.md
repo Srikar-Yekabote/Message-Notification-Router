@@ -3,7 +3,7 @@
 > **Challenge:** HackerRank Orchestrate — Message Notification Router
 > **Output contract:** `message_id,action,message_type,reason,confidence,evidence_message_ids`
 > **Input:** 110 messages in `dataset/messages.csv` · 30 solved examples in `dataset/sample_messages.csv`
-> **Status:** Phases 0–5 are built (prompts, context store, media cache, tools, router agent, output guard, critic); Phase 6, evaluation, is in progress (scorer built, two blind runs recorded). This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
+> **Status:** Phases 0–5 are built (prompts, context store, media cache, tools, router agent, output guard, critic); Phase 6, evaluation, is in progress (scorer built, three blind runs recorded; run 2's change is kept). This merges the first `AGENTIC_WORKFLOW.md` draft with the session design review.
 > **Models:** free, open models on Groq's hosted free tier. The free tier's daily token limit shapes several choices below (§8).
 
 ---
@@ -161,10 +161,14 @@ Each phase ends with a "done when" check, so you know when to move on.
    | Baseline | Phase 5 system (13 router decisions from gpt-oss-20b) | 25/25 | 21/25 | 14/25 | 0.38 / 0.52 | 0.22 |
    | 1 | `search_history` ranks the whole history by weighted similarity to the message | 24/25 | 21/25 | 10/25 | 0.31 / 0.36 | 0.21 |
 
+   | 2 (kept) | Clearer type definitions in both the router's and the critic's lists: a first contact is `unknown`, not `personal`; a risky sender whose message asks for nothing is `spam`, not `scam` | 25/25 | 23/25 | 12/25 | 0.34 / 0.44 | 0.24 |
+
+   Run 2 fixed both rows it targeted: the loan desk's voice note that asks for nothing is now `spam`, and the first-time sender is now `unknown` (the router still said `personal`; the critic, reading the same definition, objected and the revision fixed it). Every decision came from gpt-oss-120b. The run was resumed across three sessions because the 120b daily limit stopped it twice; finished messages replayed from the cache.
+
    Run 1 was reverted. The agent kept writing its own keyword queries in a narrow scope, so the new default was barely used; the change fixed no evidence miss and lost four hits. Its patch is kept outside the repo in case it is wanted later.
 7. **What the runs show:**
    - **Evidence** is the biggest bucket but mostly a selection question, not retrieval: in 9 of 14 misses in run 1 the labelled message was shown to the agent, which cited a different one, usually an identical copy of the same message or a more recent message from the same sender. Matching which copy a label picks would mean fitting the dataset, not improving routing.
-   - **Type confusion** is the most stable bucket (the same 3–4 rows in both runs): `personal` vs `unknown` for a first-time sender, `scam` vs `spam` for risky bait that asks for nothing, and `event` vs `business_update` or `urgent` for same-day changes.
+   - **Type confusion** was the most stable bucket (the same 3–4 rows in every run). Run 2 fixed `personal` vs `unknown` and `scam` vs `spam`; the two rows left are both `event`, labelled so for a same-day bus change and a health appointment update, which the router calls `urgent` and `business_update`.
    - **Action accuracy** is 24–25/25, so it has little room left on this set.
    - Run-to-run noise is real: one row's action flipped between runs when only the search ranking changed.
 

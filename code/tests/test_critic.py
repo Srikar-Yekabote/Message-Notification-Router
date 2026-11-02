@@ -9,6 +9,7 @@ from pathlib import Path
 from agent import Critic, QuotaExhausted, Review, Router
 from agent.critic import (OBJECTION_CONFIDENCE_CAP, TIE_BREAK_CONFIDENCE_CAP, TIE_BREAK_DIGEST_REASON,
                           TIE_BREAK_RISK_REASON, critic_input, facts_digest, parse_review, tie_break)
+from agent.prompts import build_system_prompt
 from context import load_store
 from llm import GroqError, RateLimitError
 from tools.base import UNTRUSTED_CLOSE, UNTRUSTED_OPEN
@@ -183,6 +184,11 @@ class CriticPartsTest(unittest.TestCase):
         settled = tie_break(row, row, [Review("object", False)])
         self.assertEqual((settled["action"], settled["message_type"], settled["reason"]), ("mute", "spam", "Loan bait."))
         self.assertEqual(settled["confidence"], "0.70")
+
+    def test_router_and_critic_share_the_type_distinctions(self):
+        for prompt in (build_system_prompt(), Critic(self.store, client=None).system_prompt):
+            self.assertIn("no earlier messages to this user", prompt)  # a first contact is unknown, not personal
+            self.assertIn("sender risk signals alone", prompt.lower())  # risky bait that asks for nothing is spam
 
     def test_critic_prompt_has_the_checks_and_no_sample_ids(self):
         prompt = Critic(self.store, client=None).system_prompt
